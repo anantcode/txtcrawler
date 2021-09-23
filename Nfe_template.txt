@@ -1,0 +1,1698 @@
+<#assign version = "1.0.57">
+<#assign id = 1>
+<#assign valorTotalPis = 0.00>
+<#assign valorTotalCofins = 0.00>
+<#assign valorTotalIPI = 0.00>
+<#assign valorTotalIPINumber = 0>
+<#assign valorTotalII = 0.00>
+<#assign valorTaxaCartao = 0.00>
+<#assign valorTotalICMS = 0.00>
+<#assign valorTotalICMSDeson = 0.00>
+<#assign valorTotalICMSST = 0.00>
+<#assign valorTotalBCICMS = 0.00>
+<#assign valorBcICMSComb = 0.00>
+<#assign valorTotalICMSComb = 0.00>
+<#assign valorTotalBCICMSST = 0.00>
+<#assign valorTotalProdutos = 0.00>
+<#assign valorTotalDifalDest = 0.00>
+<#assign valorTotalDifalOrig = 0.00>
+<#assign valorPisCofinsPauta = 0.00>
+<#assign valorTotalFCP = 0.00>
+<#assign valorTotalFCPST = 0.00>
+<#assign valorTotalFCPDescInf = 0.00>
+<#assign valorTotalFCPSTDescInf = 0.00>
+<#assign vBCSTRet = 0.00>
+<#assign pST = 0.00>
+<#assign vICMSSubstituto = 0.00>
+<#assign vICMSSTRet = 0.00>
+<#assign vBCFCPSTRet = 0.00>
+<#assign pFCPSTRet = 0.00>
+<#assign vFCPSTRet = 0.00>
+<#assign valorUnidadeItem = 0.00000>
+<#assign calculouFCP = false>
+<#assign calculouFCPST = false>
+<#assign calculouICMSComb = false>
+<#assign infoICMSComb = "">
+<#assign tagDestinatario = "">
+<#assign idDest = transaction.custbody_o2g_id_local_dest_op>
+<#assign indFinal = "">
+<#assign indIEDest = "">
+<#assign valorTotalDifalOrigDescInf = 0.00>
+<#assign valorTotalDifalDestDescInf = 0.00>
+<#assign calculouICMSST = false>
+<#assign firstItem = true>
+<#assign valorTotalFrete = 0>
+<#assign valorTotalFreteDevolucao = 0>
+<#assign shippingcost = 0>
+<#assign valorTotalDesconto = 0>
+<#assign valorTotalOutros = 0>
+<#assign valorTotalSeguro = 0>
+<#assign lastItemLine = 0>
+<#assign totalParcelas = 0>
+<#assign withICMS = 0>
+<#assign valorTotalIBPT = 0>
+<#assign isImportComb = "F">
+<#assign informaFcpDestTot = false>
+<#assign calculouICMS51 = false>
+<#if transaction.custbody_sit_transaction_n_out_despesa?string != ""><#assign vOutro = formatNumberValue(transaction.custbody_sit_transaction_n_out_despesa)?number><#else><#assign vOutro = formatNumberValue(0)?number></#if>
+<#assign vAFRMM = 0>
+<#assign cProdANP = ["210203001","320101001","320101002","320102002","320102001","320102003","820101032","820101027","820101004",
+"820101005","820101022","820101031","820101030","820101018","820101020","820101021","420105001","420101005",
+"420101004","420102005","820101003","820101012","420106002","830101001","420301004","420202001","420301001",
+"510101002","510102002","510201001","510201003","510301003","510103001","510301001","820101026","320102005",
+"320201001","320103001","220102001","320301001","320103002","820101019","820101014","820101006","820101016",
+"820101015","820101025","820101017","820101013","420102004","420104001","820101033","820101034","420106001",
+"820101011","510102001","420301002","410103001","410101001","410102001","430101004","510101001"]>
+<#assign cstPisCofins = ["99", "98", "75", "74", "73", "72", "71", "70", "67", "66", "65", "64", "63", "62", "61", "60", "56", "55", "54", "53", "52", "51", "50", "49", "04", "05", "06", "07", "08", "09"]>
+
+<#if transaction.type == "custinvc" || transaction.type == "vendbill" >
+<#assign finNfeDevolucao = "1">
+<#else>
+<#assign finNfeDevolucao = "4">
+</#if>
+<#assign cfopOutrasEntradas = ['1.949', '2.949', '1.910', '2.910']>
+<#assign cfopDevolucaoFatura = ['5.413', '6.413']>
+<#assign cfopImportComb = ['3.652']>
+<#assign truncate = transaction.custbody_o2s_c_truncate_campos>
+<#assign vFCPSTTotal = 0.00>
+<#assign vFCPSTRetTotal = 0.00>
+<#assign nro_dest = "">
+
+<#-- 1-NF-e 2-NFS-e 3-NFC-e 4-Fatura -->
+<#assign tipoNota = "NF-e">
+<#if transaction.custbody_o2s_transaction_l_tip_doc_fis?string != ""><#assign tipoNota = transaction.custbody_o2s_transaction_l_tip_doc_fis></#if>
+
+<#if customer??>
+<#assign tagDestinatario = customer>
+</#if>
+<#if vendor??>
+<#assign tagDestinatario = vendor>
+</#if>
+
+<#function isTrue campo>
+<#assign return = false>
+<#assign campoValor = campo?string?lower_case>
+<#if campoValor == "t" || campoValor == "true" || campoValor == "sim">
+<#assign return = true>
+</#if>
+<#return return>
+</#function>
+
+<#function removePonto str>
+<#assign return = "">
+<#list str?split(".") as item>
+<#if !(item_has_next)><#assign return = return+"."+item><#else><#assign return = return + item></#if>
+</#list>
+<#return return>
+</#function>
+
+<#function infoTotalIcms calcFcp calcFcpSt valUfDest valUfOrig valFcp valFcpSt>
+<#if calcFcp>
+<#assign infoReturn = "Valores totais do ICMS Interestadual: DIFAL da UF destino R$" +formata(valUfDest)+ " + FCP R$" +formata(valFcp)+ "; DIFAL da UF origem R$"+formata(valUfOrig)>
+</#if>
+<#if calcFcpSt>
+<#assign infoReturn = "Valor total do FCP-ST R$"+formata(valFcpSt)>
+</#if>
+<#return infoReturn>
+</#function>
+
+<#function formatNumberValue str range=2 divisor=".">
+
+<#if str?string?contains(".") && str?string?contains(",")>
+<#assign vOriginalNumber = str?split("[^0-9](?!.*[^0-9])","r")>
+<#else>
+<#assign vOriginalNumber = str?split("["+ divisor + "](?!.*["+ divisor +"])","r")>
+</#if>
+
+<#if vOriginalNumber[0]?string != "">
+<#assign vNumber = vOriginalNumber[0]>
+<#else>
+<#assign vNumber = "0">
+</#if>
+
+<#if vOriginalNumber?size gt 1>
+<#assign vDecimal = vOriginalNumber[1]>
+<#else>
+<#assign vDecimal = "00">
+</#if>
+<#assign vDecimal = vDecimal?string?right_pad(range, "0")>
+
+<#assign retorno = vNumber?string?replace("[^0-9]","","r") + "." + vDecimal?string?substring(0,range)>
+
+<#return retorno?string?trim>
+</#function>
+
+<#function formataRate str>
+<#assign retorno = str?string?replace("%","")?replace(",",".")>
+<#return formatNumberValue(retorno)>
+</#function>
+
+<#function formata str>
+<#return removePonto(str?string.currency?replace("R","")?replace("$","")?replace("¤","")?replace(" ","")?replace(",","."))>
+</#function>
+
+<#function formataTotal str>
+<#assign format = "">
+<#assign format = removePonto(str?string.currency?replace("R","")?replace("$","")?replace("¤","")?replace(" ","")?replace(",","."))>
+<#if format == ""><#return 0><#else><#return format></#if>
+</#function>
+
+<#function formataDecimal str>
+<#assign formatado = "">
+<#assign formatado = removePonto(str?string.currency?replace("R","")?replace("$","")?replace("¤","")?replace(" ","")?replace(",","."))>
+<#if formatado == ""><#return "0.00"><#else><#return formatado></#if>
+</#function>
+
+<#function ajustaPeso str>
+<#if str == ""><#return ""></#if>
+<#if removePonto(str?string?replace(",",".")) != "" && str?contains(".")><#assign ajustado = removePonto(str?string?replace(",","."))><#else><#assign ajustado = str?string?replace(",",".")></#if>
+<#if ajustado?split(".")[1]?length == 2 ><#assign ajustado = ajustado + "0"></#if>
+<#if ajustado?split(".")[1]?length == 1 ><#assign ajustado = ajustado + "00"></#if>
+<#if !ajustado?contains(".") && ajustado != ""><#assign ajustado = ajustado + ".000"></#if>
+<#return ajustado>
+</#function>
+
+<#function ajustaValor valor produto totalProdutos tipo>
+<#assign valor = formataTotal(valor)?number>
+<#assign produto = formataTotal(produto)?number>
+<#assign totalProdutos = formataTotal(totalProdutos)?number>
+
+<#if valor lte 0 || produto lte 0 || totalProdutos lte 0 ><#return ""></#if>
+
+<#assign percentual = produto/totalProdutos>
+<#assign valorAjustado = valor * percentual>
+
+<#if tipo = 1><#assign valorTotalFrete = valorTotalFrete + formata(valorAjustado)?number></#if>
+<#if tipo = 2><#assign valorTotalSeguro = valorTotalSeguro + formata(valorAjustado)?number></#if>
+<#if tipo = 3><#assign valorTotalDesconto = valorTotalDesconto + formata(valorAjustado)?number></#if>
+<#if tipo = 4><#assign valorTotalOutros = valorTotalOutros + formata(valorAjustado)?number></#if>
+
+<#return formata(valorAjustado)>
+</#function>
+
+<#function formataPais str>
+<#assign formatado = "">
+<#assign formatado = str?number?string?replace(".","")?replace(",","")>
+<#if formatado?length == 3><#return "0"+formatado><#else><#return formatado></#if>
+</#function>
+
+<#function consumidorFinal checkConsumidor CpfDestino InscricaoEstadualDestino CnpjDestino>
+
+<#assign retorno = 0>
+
+<#if checkConsumidor ><#assign retorno = 1></#if>
+
+<#if CpfDestino?length gt 0><#assign retorno = 1></#if>
+
+<#if InscricaoEstadualDestino == "ISENTO" || InscricaoEstadualDestino == "" >
+<#if CnpjDestino?length gt 0 >
+<#assign retorno = 1>
+</#if>
+</#if>
+
+<#return retorno>
+</#function>
+
+<#function validaTransacaoParcelamento transacao>
+<#if transacao == "vendauth">
+<#return false>
+</#if>
+
+<#if transacao == "rtnauth">
+<#return false>
+</#if>
+
+<#return true>
+</#function>
+
+<#function formatoDinheiro val>
+<#assign str = val?string>
+<#assign return = str?substring(0, str?length - 2) + "." + str?substring(str?length - 2)>
+<#return return>
+</#function>
+
+<#if tagDestinatario.custentity_sit_codmun?string?split(" - ")[1]== "EX" || tagDestinatario.custentity_sit_codmun?string?split("-")[1]== "EX" || tagDestinatario.custentity_psg_br_state_tax_subscr == "">
+<#assign indIEDest = 9>
+<#else>
+<#if tagDestinatario.custentity_psg_br_state_tax_subscr == "ISENTO">
+<#assign indIEDest = 2>
+<#else>
+<#assign indIEDest = 1>
+</#if>
+</#if>
+
+<#assign indFinal = consumidorFinal(tagDestinatario.custentity_o2s_c_customer_consu_final tagDestinatario.custentity_psg_br_cpf tagDestinatario.custentity_psg_br_state_tax_subscr tagDestinatario.custentity_psg_br_cnpj)>
+
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+<#list transaction.taxdetails as row>
+<#if row.taxcode == "PIS-DEVIDO" || row.taxcode == "PIS-REG-CUM" || row.taxcode == "PIS-REG-NAO-CUM" || row.taxcode == "PIS-RETIDO" || row.taxcode == "PIS-CREDITO" || row.taxcode == "PIS-PAUTA-IMP" || row.taxcode == "PIS-PAUTA">
+<#assign valorTotalPis = valorTotalPis + row.taxamount>
+
+<#if row.taxcode == "PIS-PAUTA-IMP">
+<#assign valorPisCofinsPauta = valorPisCofinsPauta + row.taxamount>
+</#if>
+</#if>
+<#if row.taxcode == "COFINS-DEVIDO" || row.taxcode == "COFINS-REG-CUM" || row.taxcode == "COFINS-REG-NAO-CUM" || row.taxcode == "COFINS-RETIDO" || row.taxcode == "COFINS-CREDITO" || row.taxcode == "COFINS-PAUTA-IMP" || row.taxcode == "COFINS-PAUTA">
+<#assign valorTotalCofins = valorTotalCofins + row.taxamount>
+
+<#if row.taxcode == "COFINS-PAUTA-IMP">
+<#assign valorPisCofinsPauta = valorPisCofinsPauta + row.taxamount>
+</#if>
+</#if>
+<#if row.taxcode == "IPI">
+<#assign valorTotalIPI = valorTotalIPI + row.taxamount>
+<#if tipoNota == "NFC-e">
+<#assign valorTotalIPINumber = valorTotalIPINumber + row.taxamount?replace("R$", "")?replace(",", "")?replace(".", "")?trim?number>
+</#if>
+</#if>
+<#if row.taxcode == "II">
+<#assign valorTotalII = valorTotalII + row.taxamount>
+</#if>
+<#if row.taxcode == "TAXA-CARTAO">
+<#assign valorTaxaCartao = valorTaxaCartao + row.taxamount>
+</#if>
+<#if row.taxcode == "ICMS-DIFAL">
+<#assign valorTotalDifalDestDescInf = valorTotalDifalDestDescInf + row.taxamount>
+<#assign valorTotalDifalDest = valorTotalDifalDest + row.taxamount>
+</#if>
+<#if row.taxcode == "ICMS-DIFAL-ORIG">
+<#assign valorTotalDifalOrigDescInf = valorTotalDifalOrigDescInf + row.taxamount>
+<#assign valorTotalDifalOrig = valorTotalDifalOrig + row.taxamount>
+</#if>
+<#if row.taxcode == "FCP-DEVIDO">
+<#assign valorTotalFCPDescInf = valorTotalFCPDescInf + row.taxamount>
+<#assign calculouFCP = true>
+</#if>
+<#if row.taxcode == "FCP-ST">
+<#assign valorTotalFCPSTDescInf = valorTotalFCPSTDescInf + row.taxamount>
+<#assign valorTotalFCPST = valorTotalFCPST + row.taxamount>
+<#assign calculouFCPST = true>
+</#if>
+<#if row.taxcode == "ICMS-ST">
+<#assign calculouICMSST = true>
+</#if>
+<#if row.taxcode?contains("ICMS-COMB")>
+<#assign valorTotalICMSComb = valorTotalICMSComb + row.taxamount>
+<#assign valorBcICMSComb = valorBcICMSComb + row.taxbasis>
+<#assign calculouICMSComb = true>
+</#if>
+<#if row.taxcode?contains("CIDE-COMB-IMP")>
+<#assign vOutro = vOutro + row.taxamount>
+</#if>
+</#list>
+
+<#assign vOutro = vOutro + valorPisCofinsPauta>
+
+<#if calculouICMSComb>
+<#assign infoICMSComb = "BC ICMS RETIDO: R$ " + valorBcICMSComb + " - ICMS RETIDO: R$ " + valorTotalICMSComb>
+</#if>
+
+<#if transaction.discounttotal?string != "">
+<#assign valorDesconto = formatNumberValue(transaction.discounttotal)?number>
+<#assign valorTaxaDesconto = valorDesconto>
+<#else>
+<#assign valorDesconto = 0 >
+<#assign valorTaxaDesconto = 0>
+</#if>
+
+<#if valorDesconto lt 0>
+<#assign valorDesconto = valorDesconto * -1>
+<#assign valorTaxaDesconto = valorDesconto>
+</#if>
+
+<#list transaction.item as row>
+<#if row.itemtype != "Kit">
+<#if formata(row.amount)?number lt 0>
+<#assign valorDesconto = valorDesconto + (formata(row.amount)?number * -1)>
+</#if>
+<#if (row.custcol_psg_br_tran_incoming_cfop != "" || row.custcol_psg_br_tran_outgoing_cfop != "")>
+<#assign valorTotalProdutos = valorTotalProdutos + row.amount>
+<#assign lastItemLine = row.line?number>
+<#if (row.custcol_psg_br_tran_incoming_cfop != "" && cfopOutrasEntradas?seq_contains(row.custcol_psg_br_tran_incoming_cfop)) || (row.custcol_psg_br_tran_outgoing_cfop != "" && cfopOutrasEntradas?seq_contains(row.custcol_psg_br_tran_outgoing_cfop))>
+<#assign finNfeDevolucao = "1">
+</#if>
+<#if (row.custcol_psg_br_tran_incoming_cfop != "" && cfopDevolucaoFatura?seq_contains(row.custcol_psg_br_tran_incoming_cfop)) || (row.custcol_psg_br_tran_outgoing_cfop != "" && cfopDevolucaoFatura?seq_contains(row.custcol_psg_br_tran_outgoing_cfop))>
+<#assign finNfeDevolucao = "4">
+</#if>
+<#if (row.custcol_psg_br_tran_incoming_cfop != "" && cfopImportComb?seq_contains(row.custcol_psg_br_tran_incoming_cfop)) || (row.custcol_psg_br_tran_outgoing_cfop != "" && cfopImportComb?seq_contains(row.custcol_psg_br_tran_outgoing_cfop))>
+<#assign isImportComb = "T">
+</#if>
+<#if transaction.custbody_o2s_invoice_c_complement_icms || transaction.custbody_o2s_invoice_c_complementar>
+<#assign finNfeDevolucao = "2">
+</#if>
+</#if>
+<#if row.item?string?upper_case?contains("FRETE") && transaction.type == "rtnauth">
+<#assign valorTotalFreteDevolucao = row.amount>
+</#if>
+</#if>
+</#list>
+
+<#if valorTotalFreteDevolucao != 0>
+<#assign shippingcost = valorTotalFreteDevolucao>
+<#else>
+<#if transaction.shippingcost?string != "">
+<#assign shippingcost = transaction.shippingcost>
+</#if>
+</#if>
+
+<#function truncateFields str size>
+<#assign retorno = str>
+<#if truncate>
+<#assign retorno = retorno?substring(0, size - 1)>
+</#if>
+<#return retorno?string?trim>
+</#function>
+
+<#list transaction.expense as row>
+
+<#if row.custcol_o2s_transactio_t_tipo_despesa?string == "4" || row.custcol_o2s_transactio_t_tipo_despesa?string == "5" || row.custcol_o2s_transactio_t_tipo_despesa?string == "6" || transaction.custbody_o2s_transaction_l_tp_import?string != "">
+<#assign vOutro = vOutro + formatNumberValue(row.amount)?number>
+
+<#if row.custcol_o2s_transactio_t_tipo_despesa?string == "4" >
+<#assign vAFRMM = vAFRMM + formatNumberValue(row.amount)?number>
+</#if>
+
+</#if>
+</#list>
+
+<#function preencheTagsImpostoRetidoAnteriormente itemId itemQTD>
+
+<#assign encontrouItem = false>
+
+<#list objItems.items as item>
+
+<#if itemId == item.itemId>
+
+<#assign vBCSTRet = item.baseICMSSTUnitario?number * itemQTD>
+<#assign pST = item.aliquotaICMSST>
+<#assign vICMSSubstituto = item.valorICMSSTUnitario?number * itemQTD>
+<#assign vICMSSTRet = item.valorICMSSTUnitario?number * itemQTD>
+<#assign vBCFCPSTRet = item.baseFCPUnitario?number * itemQTD>
+<#assign pFCPSTRet = item.aliquotaFCP>
+<#assign vFCPSTRet = item.valorFCPUnitario?number * itemQTD>
+
+<#if vBCSTRet == 0>
+<#assign vBCSTRet = "0.00">
+<#else>
+<#assign vBCSTRet = formata(vBCSTRet)>
+</#if>
+
+<#if vICMSSubstituto == 0>
+<#assign vICMSSubstituto = "0.00">
+<#else>
+<#assign vICMSSubstituto = formata(vICMSSubstituto)>
+</#if>
+
+<#if vICMSSTRet == 0>
+<#assign vICMSSTRet = "0.00">
+<#else>
+<#assign vICMSSTRet = formata(vICMSSTRet)>
+</#if>
+
+<#if vBCFCPSTRet == 0>
+<#assign vBCFCPSTRet = "0.00">
+<#else>
+<#assign vBCFCPSTRet = formata(vBCFCPSTRet)>
+</#if>
+
+<#if vFCPSTRet == 0>
+<#assign vFCPSTRet = "0.00">
+<#else>
+<#assign vFCPSTRetTotal += vFCPSTRet>
+<#assign vFCPSTRet = formata(vFCPSTRet)>
+</#if>
+
+<#if pST?string?contains(".") && pST?string?length == 3>
+<#assign pST = pST + "0">
+</#if>
+
+<#assign encontrouItem = true>
+<#return encontrouItem>
+</#if>
+
+</#list>
+
+<#return encontrouItem>
+</#function>
+
+<infNFe Id="NFe${transaction.custbody_sit_transaction_chave_nfe}" versao="4.00">
+<ide>
+<cUF>${transaction.custbody_o2g_cod_emi_ibge_uf}</cUF>
+<cNF>${transaction.custbody_o2g_transaction_cod_nfe}</cNF>
+<natOp>${transaction.custbody_sit_transaction_l_nat_ope}</natOp>
+<mod>${transaction.custbody_sit_transaction_l_modelo_nfe}</mod>
+<serie><#if tipoNota == "NFC-e">${transaction.custbody_o2s_transaction_l_serie_nfce}<#else>${transaction.custbody_sit_transaction_l_serie}</#if></serie>
+<nNF>${transaction.custbody_sit_transaction_i_numero_nfe}</nNF>
+<dhEmi>${.now?string["yyyy-MM-dd"]}T${.now?string["HH:mm:ss"]}-03:00</dhEmi>
+<#if tipoNota != "NFC-e">
+<#if transaction.custbody_o2s_t_data_saida_entrada_mer != "">
+<dhSaiEnt>${transaction.custbody_o2s_t_data_saida_entrada_mer?date?string["yyyy-MM-dd"]}T${transaction.custbody_o2s_t_hora_saida_entrada_mer?date("HH:mm")?string["HH:mm:ss"]}-03:00</dhSaiEnt>
+<#else>
+<dhSaiEnt>${.now?string["yyyy-MM-dd"]}T${.now?string["HH:mm:ss"]}-03:00</dhSaiEnt>
+</#if>
+</#if>
+<tpNF><#if transaction.type == "custinvc" || transaction.type == "vendcred" || transaction.type == "vendauth">1</#if><#if transaction.type == "custcred" || transaction.type == "vendbill" || transaction.type == "rtnauth">0</#if></tpNF>
+<idDest>${transaction.custbody_o2g_id_local_dest_op}</idDest>
+<cMunFG>${transaction.custbody_o2g_cod_mun_o_f_gerad}</cMunFG>
+<tpImp><#if tipoNota == "NFC-e">4<#else>1</#if></tpImp>
+<tpEmis><#if transaction.custbody_o2s_transaction_t_tpemis_cont != "" >${transaction.custbody_o2s_transaction_t_tpemis_cont}<#else>1</#if></tpEmis>
+<cDV>${transaction.custbody_o2s_t_transac_dig_veri_nfe}</cDV>
+<tpAmb>${transaction.custbody_o2s_t_invoice_amb_nfe}</tpAmb>
+<finNFe>${finNfeDevolucao}</finNFe>
+<indFinal>${indFinal}</indFinal>
+<indPres><#if tipoNota == "NFC-e">1<#else>9</#if></indPres>
+<procEmi>0</procEmi>
+<verProc>BRHub</verProc>
+<#if transaction.custbody_o2s_transaction_d_contingenci?string != "" && transaction.custbody_o2s_transaction_h_contingenci?string != "" >
+<dhCont>${transaction.custbody_o2s_transaction_d_contingenci?string["yyyy-MM-dd"]}T${transaction.custbody_o2s_transaction_h_contingenci?string["HH:mm:ss"]}-03:00</dhCont>
+</#if>
+<xJust>${transaction.custbody_o2s_transaction_a_just_contin}</xJust>
+<#if transaction.type == "custcred" || transaction.type == "vendcred" || transaction.type == "rtnauth" || transaction.type == "vendauth" || (transaction.type == "vendbill" && transaction.custbody_sit_transaction_l_nat_ope?string?upper_case?contains("DEVOLUÇÃO"))>
+<NFref>
+<refNF>
+<cUF>${transaction.custbody_o2g_cod_emi_ibge_uf}</cUF>
+<AAMM>${transaction.custbody_o2s_transaction_dt_nfe_ref}</AAMM>
+<CNPJ>${transaction.custbody_sit_transaction_t_cnpj}</CNPJ>
+<mod>01</mod>
+<serie><#if transaction.custbody_o2s_transaction_t_serie_ref != "">${transaction.custbody_o2s_transaction_t_serie_ref}<#else>${transaction.custbody_o2s_transaction_l_serie_ref}</#if></serie>
+<nNF>${transaction.custbody_o2s_transaction_t_num_nfe_ref}</nNF>
+</refNF>
+</NFref>
+</#if>
+<#if transaction.custbody_o2s_transaction_t_cha_nfe_ref != "" && transaction.type == "custinvc">
+<NFref>
+<refNFe>${transaction.custbody_o2s_transaction_t_cha_nfe_ref}</refNFe>
+</NFref>
+</#if>
+</ide>
+<emit>
+<CNPJ>${transaction.custbody_sit_transaction_t_cnpj}</CNPJ>
+<xNome><#escape x as x?html>${truncateFields(transaction.custbody_sit_invoce_t_raz_soc_sub, 60)}</#escape></xNome>
+<enderEmit>
+<xLgr>${truncateFields(transaction.custbody_o2g_logr_end_sub,60)}</xLgr>
+<#if transaction.custbody_o2g_nr_end_sub?string == "0">
+<nro>S/N</nro>
+<#else>
+<nro>${transaction.custbody_o2g_nr_end_sub}</nro>
+</#if>
+<xBairro>${truncateFields(transaction.custbody_o2g_bairro_end_sub,60)}</xBairro>
+<cMun>${transaction.custbody_o2g_cod_mun_o_f_gerad}</cMun>
+<xMun>${transaction.custbody_o2g_nm_mun_end_sub}</xMun>
+<UF>${transaction.custbody_o2g_uf_end_sub}</UF>
+<CEP>${transaction.custbody_o2g_cep_end_sub?replace("-","")}</CEP>
+<cPais>1058</cPais>
+<fone>${transaction.custbody_o2s_fone_fax_i_subsidiaria?string?replace("(","")?replace(")","")?replace("-","")?replace(" ","")}</fone>
+</enderEmit>
+<#if transaction.custbody_o2s_transaction_insc_est_sub != "ISENTO">
+<IE>${transaction.custbody_o2s_transaction_insc_est_sub?replace(".", "")?replace("-", "")}</IE>
+</#if>
+<#if transaction.custbody_o2s_transaction_i_est_st_sub?upper_case != "ISENTO"><IEST>${transaction.custbody_o2s_transaction_i_est_st_sub?replace(".", "")?replace("-", "")}</IEST></#if>
+<IM>${transaction.custbody_sit_transaction_t_insc_munic?replace(".", "")?replace("-", "")}</IM>
+<CNAE>${transaction.custbody_sit_transaction_t_cod_cnae}</CNAE>
+<CRT>${transaction.custbody_o2s_t_transac_cod_crt}</CRT>
+</emit>
+<#if tagDestinatario.custentity_psg_br_cnpj != "" || tagDestinatario.custentity_psg_br_cpf != "" || tipoNota != "NFC-e">
+<dest>
+<#assign customAdressMap = transaction.custbody_o2s_transaction_a_address_map?string?eval>
+<#if customAdressMap.address != ""><#if customAdressMap.publicAreaType.text != ""><#assign addressArea = customAdressMap.publicAreaType.text + " " + customAdressMap.address><#else><#assign addressArea = customAdressMap.address></#if><#else><#assign addressArea = ""></#if>
+<#if tagDestinatario.custentity_psg_br_cnpj != "">
+<CNPJ>${tagDestinatario.custentity_psg_br_cnpj?replace("/", "")?replace("-", "")?replace(".", "")?replace(".", "")}</CNPJ>
+</#if>
+<#if tagDestinatario.custentity_psg_br_cpf != "">
+<CPF>${tagDestinatario.custentity_psg_br_cpf?replace("/", "")?replace("-", "")?replace(".", "")?replace(".", "")}</CPF>
+</#if>
+<#if tagDestinatario.custentity_sit_codmun?string?split(" - ")[1] == "EX" || tagDestinatario.custentity_sit_codmun?string?split("-")[1] == "EX">
+<idEstrangeiro>${tagDestinatario.custentity_o2s_t_doc_estrangeiro}</idEstrangeiro>
+</#if>
+<xNome><#if transaction.custbody_o2s_t_invoice_amb_nfe == "2" >NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL<#else><#if tagDestinatario.isperson == "T">${tagDestinatario.firstname} ${tagDestinatario.lastname}<#else>${truncateFields(tagDestinatario.companyname, 60)}</#if></#if></xNome>
+<enderDest>
+<xLgr><#if customAdressMap.countyState?string != ""><#if customAdressMap.countyState?string != "EX"><#if addressArea != "">${truncateFields(addressArea?string,60)}</#if></#if><#else><#if tagDestinatario.custentity_sit_codmun?string?split(" - ")[1]!= "EX" && tagDestinatario.custentity_sit_codmun?string?split("-")[1]!= "EX"><#if transaction.custbody_sit_customer_t_tplogradouro != "">${truncateFields(transaction.custbody_sit_customer_t_tplogradouro?string,60)} ${truncateFields(transaction.custbody_sit_customer_t_endereco?string,60)}<#else>${truncateFields(transaction.custbody_sit_customer_t_endereco?string,60)}</#if><#else>${truncateFields(transaction.custbody_sit_customer_t_endereco?string?split(",")[0],60)}</#if></#if></xLgr>
+<#if customAdressMap.countyState?string != ""><#if customAdressMap.countyState?string != "EX"><#assign nro_dest = customAdressMap.number></#if><#else><#if tagDestinatario.custentity_sit_codmun?string?split(" - ")[1]!= "EX" && tagDestinatario.custentity_sit_codmun?string?split("-")[1]!= "EX"><#assign nro_dest = transaction.custbody_sit_customer_t_numero><#else><#assign nro_dest = transaction.custbody_sit_customer_t_endereco?string?split(",")[2]?trim></#if></#if>
+<#if nro_dest == "0" >
+<nro>S/N</nro>
+<#else>
+<nro>${nro_dest}</nro>
+</#if>
+<xCpl><#if customAdressMap.countyState?string != ""><#if customAdressMap.countyState?string != "EX"><#if customAdressMap.complement != "">${truncateFields(customAdressMap.complement,60)}</#if></#if><#else><#if tagDestinatario.custentity_sit_codmun?string?split(" - ")[1]!= "EX" && tagDestinatario.custentity_sit_codmun?string?split("-")[1]!= "EX">${truncateFields(transaction.custbody_sit_customer_t_complemento,60)}</#if></#if></xCpl>
+<xBairro><#if customAdressMap.countyState?string != ""><#if customAdressMap.countyState?string != "EX"><#if customAdressMap.district != "">${truncateFields(customAdressMap.district,60)}</#if></#if><#else><#if tagDestinatario.custentity_sit_codmun?string?split(" - ")[1]!= "EX" && tagDestinatario.custentity_sit_codmun?string?split("-")[1]!= "EX">${truncateFields(transaction.custbody_sit_customer_t_bairro?string,60)}<#else>${truncateFields(transaction.custbody_sit_customer_t_endereco?string?split(",")[1],60)}</#if></#if></xBairro>
+<cMun><#if customAdressMap.IBGECode != "">${customAdressMap.IBGECode}<#else>${transaction.custbody_sit_invoice_t_cd_munic_ibge}</#if></cMun>
+<xMun><#if customAdressMap.countyCity != "">${customAdressMap.countyCity}<#else><#if tagDestinatario.custentity_sit_codmun?string?split(" - ")[0]!= "">${tagDestinatario.custentity_sit_codmun?string?split(" - ")[0]}<#else>${tagDestinatario.custentity_sit_codmun?string?split("-")[0]}</#if></#if></xMun>
+<UF><#if customAdressMap.countyState != "">${customAdressMap.countyState}<#else><#if tagDestinatario.custentity_sit_codmun?string?split(" - ")[1]!= "">${tagDestinatario.custentity_sit_codmun?string?split(" - ")[1]}<#else>${tagDestinatario.custentity_sit_codmun?string?split("-")[1]}</#if></#if></UF>
+<CEP><#if customAdressMap.zip != "">${customAdressMap.zip?replace("-","")}<#else>${transaction.custbody_sit_customer_t_cep?replace("-","")}</#if></CEP>
+<cPais><#if tagDestinatario.custentity_sit_codmun?string?split(" - ")[1] == "EX" || tagDestinatario.custentity_sit_codmun?string?split("-")[1] == "EX">${formataPais(tagDestinatario.custentity_o2s_entity_cod_pais_bacen)}<#else>1058</#if></cPais>
+</enderDest>
+<indIEDest>${indIEDest}</indIEDest>
+<#if tagDestinatario.custentity_psg_br_state_tax_subscr != "ISENTO" && tagDestinatario.custentity_sit_codmun?string?split(" - ")[1]!= "EX">
+<IE>${tagDestinatario.custentity_psg_br_state_tax_subscr?replace(".", "")?replace("-", "")}</IE>
+</#if>
+<ISUF>${tagDestinatario.custentity_psg_br_suframa_subscr?replace(".", "")?replace("-", "")}</ISUF>
+</dest>
+</#if>
+<#if transaction.custbody_o2s_transaction_t_cha_nfe_ref == "">
+<#list tagDestinatario.addressbook as address>
+<#if address.defaultshipping && address.zip_initialvalue != tagDestinatario.billzip>
+<entrega>
+<#if tagDestinatario.custentity_psg_br_cnpj != "">
+<CNPJ>${tagDestinatario.custentity_psg_br_cnpj?replace("/", "")?replace("-", "")?replace(".", "")?replace(".", "")}</CNPJ>
+</#if>
+<#if tagDestinatario.custentity_psg_br_cpf != "">
+<CPF>${tagDestinatario.custentity_psg_br_cpf?replace("/", "")?replace("-", "")?replace(".", "")?replace(".", "")}</CPF>
+</#if>
+<xLgr>${truncateFields(address.addr1_initialvalue,60)}</xLgr>
+<#if tagDestinatario.custentity_o2g_nro_end_entrega?string == "0">
+<nro>S/N</nro>
+<#else>
+<nro>${tagDestinatario.custentity_o2g_nro_end_entrega}</nro>
+</#if>
+<xBairro>${truncateFields(tagDestinatario.custentity_o2g_t_bairro_end_entreg,60)}</xBairro>
+<cMun>${tagDestinatario.custentity_o2g_t_cod_mun_ibge}</cMun>
+<xMun>${address.displaystate_initialvalue}</xMun>
+<UF>${address.state_initialvalue}</UF>
+</entrega>
+</#if>
+</#list>
+</#if>
+<#list transaction.item as row>
+<#if row.itemtype != "Kit">
+<#if (row.custcol_psg_br_tran_incoming_cfop != "" || row.custcol_psg_br_tran_outgoing_cfop != "") >
+<#assign tagICMS = false>
+<det nItem="${id}">
+<prod>
+<cProd>${truncateFields(row.item,60)}</cProd>
+<#if row.custcol_o2s_transaction_i_ean?string?replace(",","") != "">
+<cEAN>${row.custcol_o2s_transaction_i_ean?string?replace(",","")?replace(".","")}</cEAN>
+<#else>
+<cEAN>SEM GTIN</cEAN>
+</#if>
+<xProd><#if id == 1 && tipoNota == "NFC-e" && transaction.custbody_o2s_t_invoice_amb_nfe == "2">NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL<#else>${truncateFields(row.description + row.custcol_o2s_transaction_t_det_lote?string?replace(",","")?replace(" | "," "),120)}</#if></xProd>
+<NCM>${row.custcol_psg_br_tran_mcn?replace(".","")}</NCM>
+<CEST><#if row.custcol_o2s_t_transac_item_cest != "">${row.custcol_o2s_t_transac_item_cest?replace(".","")}<#else>0000000</#if></CEST>
+<indEscala><#if row.custcol_o2s_t_ind_escala_relevante == "T" || row.custcol_o2s_t_ind_escala_relevante == "true">S<#else>N</#if></indEscala>
+<#if row.custcol_o2s_t_ind_escala_relevante == "F" || row.custcol_o2s_t_ind_escala_relevante == "false"><CNPJFab>${row.custcol_o2s_t_cnpj_fabric_mercadoria?replace(".","")}</CNPJFab></#if>
+<CFOP><#if transaction.type == "custcred" || transaction.type == "vendbill" || transaction.type == "rtnauth" >${row.custcol_psg_br_tran_incoming_cfop?replace(".","")}<#else>${row.custcol_psg_br_tran_outgoing_cfop?replace(".","")}</#if></CFOP>
+<#assign valorUnidadeItem = (row.amount/row.quantity?replace(".","")?replace(",",".")?number)?string["0.##########"]?replace(",",".")>
+<uCom><#if row.units != "">${row.units}<#else>UN</#if></uCom>
+<qCom>${formatNumberValue(row.quantity?string?replace(".", "")?replace(",", ".") 4 ".")}</qCom>
+<vUnCom>${valorUnidadeItem}</vUnCom>
+<vProd>${formata(row.amount)}</vProd>
+<#if row.custcol_o2s_transaction_i_ean_trib?string?replace(",","") != "">
+<cEANTrib>${row.custcol_o2s_transaction_i_ean_trib?string?replace(",","")?replace(".","")}</cEANTrib>
+<#else>
+<cEANTrib>SEM GTIN</cEANTrib>
+</#if>
+<uTrib><#if row.custcol_o2s_transac_l_unidade_tribut?string?trim != "">${row.custcol_o2s_transac_l_unidade_tribut}<#else><#if row.units != "">${row.units}<#else>UN</#if></#if></uTrib>
+<qTrib>${formatNumberValue(row.quantity?string?replace(".", "")?replace(",", ".") 4 ".")}</qTrib>
+<vUnTrib>${valorUnidadeItem}</vUnTrib>
+<vFrete><#if !firstItem && lastItemLine != 0 && lastItemLine == row.line?number && valorTotalFrete?number != 0>${formata(formataTotal(shippingcost)?number - valorTotalFrete?number)}<#else>${ajustaValor(shippingcost row.amount valorTotalProdutos 1)}</#if></vFrete>
+<vSeg><#if !firstItem && lastItemLine != 0 && lastItemLine == row.line?number && valorTotalSeguro?number != 0>${formata(formataTotal(transaction.custbody_sit_transaction_n_vl_seguro)?number - valorTotalSeguro?number)}<#else>${ajustaValor(transaction.custbody_sit_transaction_n_vl_seguro row.amount valorTotalProdutos 2)}</#if></vSeg>
+<vDesc><#if !firstItem && lastItemLine != 0 && lastItemLine == row.line?number && valorTotalDesconto?number != 0>${formata(formataTotal(valorDesconto)?number - valorTotalDesconto?number)}<#else>${ajustaValor(valorDesconto row.amount valorTotalProdutos 3)}</#if></vDesc>
+<vOutro><#if !firstItem && lastItemLine != 0 && lastItemLine == row.line?number && valorTotalOutros?number != 0>${formata(formataTotal(vOutro)?number - valorTotalOutros?number)}<#else>${ajustaValor(vOutro row.amount valorTotalProdutos 4)}</#if></vOutro>
+<indTot>1</indTot>
+<DI>
+<nDI>${transaction.custbody_o2s_transaction_t_nr_doc_imp}</nDI>
+<dDI>${transaction.custbody_o2s_transaction_d_dt_reg_doc?string["yyyy-MM-dd"]}</dDI>
+<xLocDesemb>${truncateFields(transaction.custbody_o2s_transaction_l_loc_des_adu,60)}</xLocDesemb>
+<UFDesemb><#if transaction.custbody_o2s_transaction_l_uf_des_adua?string?split(" - ")[0]!= "">${transaction.custbody_o2s_transaction_l_uf_des_adua?string?split(" - ")[0]}<#else>${transaction.custbody_o2s_transaction_l_uf_des_adua?string?split("-")[0]}</#if></UFDesemb>
+<dDesemb>${transaction.custbody_o2s_transaction_d_dt_des_adua?string["yyyy-MM-dd"]}</dDesemb>
+<tpViaTransp><#if transaction.custbody_o2s_transaction_l_via_tran_in?string?split(" - ")[0]!= "">${transaction.custbody_o2s_transaction_l_via_tran_in?string?split(" - ")[0]}<#else>${transaction.custbody_o2s_transaction_l_via_tran_in?string?split("-")[0]}</#if></tpViaTransp>
+<vAFRMM><#if transaction.custbody_o2s_transaction_t_nr_doc_imp !=""><#if vAFRMM gt 0 >${vAFRMM}<#else><#if transaction.custbody_o2s_transaction_v_valor_afrmm gt 0>${transaction.custbody_o2s_transaction_v_valor_afrmm?string["0.##"]?replace(",",".")}<#else>0.00</#if></#if></#if></vAFRMM>
+<tpIntermedio><#if transaction.custbody_o2s_transaction_l_form_import?string?split(" - ")[0]!= "">${transaction.custbody_o2s_transaction_l_form_import?string?split(" - ")[0]}<#else>${transaction.custbody_o2s_transaction_l_form_import?string?split("-")[0]}</#if></tpIntermedio>
+<cExportador>${transaction.custbody_o2s_transaction_t_cd_export}</cExportador>
+<adi>
+<nAdicao>${transaction.custbody_o2s_transaction_t_nr_ad}</nAdicao>
+<nSeqAdic>${transaction.custbody_o2s_transaction_t_nr_seq_ad}</nSeqAdic>
+<cFabricante>${transaction.custbody_o2s_transaction_t_cd_fab_estr}</cFabricante>
+<vDescDI>${formata(transaction.custbody_o2s_transaction_v_val_desc_di?string)}</vDescDI>
+<nDraw>${transaction.custbody_o2s_transaction_t_nr_ato_draw}</nDraw>
+</adi>
+</DI>
+<#if transaction.otherrefnum != ""><xPed>${transaction.otherrefnum}</xPed></#if>
+<#if row.custcol_o2s_transaction_t_codigo_simp?string != "">
+<comb>
+<cProdANP>${row.custcol_o2s_transaction_t_codigo_simp}</cProdANP>
+<descANP>${truncateFields(row.description,120)}</descANP>
+<CODIF>00</CODIF>
+<qTemp>${formatNumberValue(row.quantity 4)}</qTemp>
+<UFCons><#if transaction.type == "vendbill">${transaction.custbody_o2g_uf_end_sub}<#else>${tagDestinatario.custentity_sit_codmun?string?split(" - ")[1]}</#if></UFCons>
+<CIDE>
+<qBCProd><#if row.custcol_o2s_transaction_n_quant_solic?string != "">${row.custcol_o2s_transaction_n_quant_solic?replace(".", "")?replace(",", ".")}<#else>${formatNumberValue(row.quantity 4)}</#if></qBCProd>
+<vAliqProd>0.0000</vAliqProd>
+<vCIDE><#if row.custcol_o2s_transaction_t_valor_cide != "">${row.custcol_o2s_transaction_t_valor_cide?string?replace(",", ".")}<#else>0.00</#if></vCIDE>
+</CIDE>
+</comb>
+</#if>
+</prod>
+<imposto>
+<#assign vBCICMS = 0.00>
+<#assign pICMS = 0.00>
+<#assign vICMS = 0.00>
+<#assign vBCICMSST = 0.00>
+<#assign pICMSST = 0.00>
+<#assign vICMSST = 0.00>
+<#assign vICMSUFDest = 0.00>
+<#assign pICMSUFDest = 0.00>
+<#assign vICMSUFRemet = 0.00>
+<#assign vICMSDeson = 0.00>
+<#assign pICMSInter = 0.00>
+<#assign calculouICMSZFM = false>
+<#assign pFCPST = 0.00>
+<#assign vFCPST = 0.00>
+<#assign vBCFCPST = 0.00>
+<#assign pFCP = 0.00>
+<#assign vBCFCP = 0.00>
+<#assign vFCP = 0.00>
+<#assign pST = 0.00>
+<#assign pRedBCEfet = 0.00>
+<#assign pICMSEfet = 0.00>
+<#assign vBCEfet = 0.00>
+<#assign vICMSEfet = 0.00>
+<#assign calculouAliq = 0>
+<#if row.custcol_o2s_t_transac_perc_red_bc_i_e != "" && row.custcol_o2s_t_transac_aliq_icms_efet != "">
+<#assign pRedBCEfet = (row.custcol_o2s_t_transac_perc_red_bc_i_e?number / 100)?string["0.##"]?replace(",",".")?number>
+<#assign pICMSEfet = (row.custcol_o2s_t_transac_aliq_icms_efet?number / 100)?string["0.##"]?replace(",",".")?number>
+<#assign vBCEfet = formata(row.amount * pRedBCEfet)>
+<#assign vICMSEfet = formata(vBCEfet?number * pICMSEfet)>
+<#assign pRedBCEfet = (100 - row.custcol_o2s_t_transac_perc_red_bc_i_e?number)?string?replace(",", ".")+"0">
+<#assign pICMSEfet = row.custcol_o2s_t_transac_aliq_icms_efet?string?replace(",", ".")+"0">
+<#if pRedBCEfet?number == 0>
+<#assign pRedBCEfet = "0.00">
+</#if>
+<#if pRedBCEfet?string?length == 3 && !pRedBCEfet?string?contains(".")>
+<#assign pRedBCEfet = pRedBCEfet?string?substring(0,2) + ".00">
+</#if>
+</#if>
+<#assign informaFcpDest = false>
+<#assign valorItemIPI = 0.00>
+<#if transaction.custbody_o2s_vlr_ibpt_t_by_item != "" && transaction.custbody_o2s_transaction_v_tribut_apro gt 0>
+<#assign vlrTotTribIbpt = transaction.custbody_o2s_vlr_ibpt_t_by_item?split("|")>
+<#assign vlrTotTribIbpt = vlrTotTribIbpt[id-1]?number>
+<#if vlrTotTribIbpt gt 0>
+<vTotTrib>${formata(vlrTotTribIbpt)}</vTotTrib>
+<#assign valorTotalIBPT = formata(valorTotalIBPT)?number + formata(vlrTotTribIbpt)?number>
+</#if>
+</#if>
+
+<#if isTrue(transaction.custbody_o2s_transaction_c_compl_imp)>
+<ICMS>
+<ICMS90>
+<orig>1</orig>
+<CST>90</CST>
+<modBC>3</modBC>
+<vBC>0.00</vBC>
+<pICMS>0.00</pICMS>
+<vICMS>0.00</vICMS>
+<modBCST>4</modBCST>
+<vBCST>0.00</vBCST>
+<pICMSST>0.00</pICMSST>
+<vICMSST>0.00</vICMSST>
+</ICMS90>
+</ICMS>
+<#if row.custcol_sit_t_transac_item_c_cst_ipi != "">
+<IPI>
+<cEnq>999</cEnq>
+<IPINT>
+<CST>03</CST>
+</IPINT>
+</IPI>
+</#if>
+<II>
+<vBC>0.00</vBC>
+<vDespAdu>0.00</vDespAdu>
+<vII>0.00</vII>
+<vIOF>0.00</vIOF>
+</II>
+<#if row.custcol_o2g_t_transac_item_c_cst_pis != "">
+<PIS>
+<PISOutr>
+<CST>${row.custcol_o2g_t_transac_item_c_cst_pis}</CST>
+<vBC>0.00</vBC>
+<pPIS>0.00</pPIS>
+<vPIS>0.00</vPIS>
+</PISOutr>
+</PIS>
+</#if>
+<#if row.custcol_o2g_t_transac_item_c_cst_cofi != "">
+<COFINS>
+<COFINSOutr>
+<CST>${row.custcol_o2g_t_transac_item_c_cst_cofi}</CST>
+<vBC>0.00</vBC>
+<pCOFINS>0.00</pCOFINS>
+<vCOFINS>0.00</vCOFINS>
+</COFINSOutr>
+</COFINS>
+</#if>
+<#else>
+<#list transaction.taxdetails as tax>
+<#if tax.taxcode == "ICMS" && tax.taxdetailsreference == row.taxdetailsreference>
+<#assign vBCICMS = formata(tax.taxbasis)>
+<#assign pICMS = formataRate(tax.taxrate)>
+<#assign vICMS = formata(tax.taxamount)>
+<#assign valorTotalICMS = valorTotalICMS + tax.taxamount>
+<#assign valorTotalBCICMS = valorTotalBCICMS + tax.taxbasis>
+</#if>
+<#if (tax.taxcode == "ICMS-ST" || tax.taxcode?contains("ICMS-COMB")) && tax.taxdetailsreference == row.taxdetailsreference>
+<#assign vBCICMSST = formata(tax.taxbasis)>
+<#assign pICMSST = formataRate(tax.taxrate)>
+<#assign vICMSST = tax.taxamount>
+<#assign valorTotalICMSST = valorTotalICMSST + tax.taxamount>
+<#assign valorTotalBCICMSST = valorTotalBCICMSST + tax.taxbasis>
+</#if>
+<#if tax.taxcode == "ICMS-DIFAL" && tax.taxdetailsreference == row.taxdetailsreference>
+<#assign vICMSUFDest = formata(tax.taxamount)>
+<#assign pICMSUFDest = formataRate(tax.taxrate)>
+</#if>
+<#if tax.taxcode == "ICMS-DIFAL-ORIG" && tax.taxdetailsreference == row.taxdetailsreference>
+<#assign vICMSUFRemet = formata(tax.taxamount)>
+<#assign pICMSInter = formataRate(tax.taxrate)>
+</#if>
+<#if tax.taxcode == "ICMS-ZFM" && tax.taxdetailsreference == row.taxdetailsreference>
+<#assign vICMSDeson =formata(tax.taxamount)>
+<#assign valorTotalICMSDeson = valorTotalICMSDeson + tax.taxamount>
+<#assign calculouICMSZFM = true>
+</#if>
+<#if tax.taxcode == "FCP-ST" && tax.taxdetailsreference == row.taxdetailsreference>
+<#assign pFCPST = formataRate(tax.taxrate)>
+<#assign vBCFCPST = formata(tax.taxbasis)>
+<#assign vFCPST = formata(tax.taxamount)>
+
+<#if cstICMS == "60" || row.custcol_o2s_t_transac_cod_csosn == "500">
+<#assign vFCPSTRetTotal = vFCPSTRetTotal + tax.taxamount>
+<#else>
+<#assign vFCPSTTotal = vFCPSTTotal + tax.taxamount>
+</#if>
+</#if>
+<#if tax.taxcode == "FCP-DEVIDO" && tax.taxdetailsreference == row.taxdetailsreference>
+<#assign pFCP = formataRate(tax.taxrate)>
+<#assign vBCFCP = formata(tax.taxbasis)>
+<#assign vFCP = formata(tax.taxamount)>
+<#assign valorTotalFCP = valorTotalFCP + tax.taxamount>
+<#assign valorTotalFCPDescInf = valorTotalFCPDescInf + tax.taxbasis>
+</#if>
+<#if tax.taxcode == "FCP-CREDITO" && tax.taxdetailsreference == row.taxdetailsreference>
+<#assign pFCP = formataRate(tax.taxrate)>
+<#assign vBCFCP = formata(tax.taxbasis)>
+<#assign vFCP = formata(tax.taxamount)>
+</#if>
+<#if indIEDest?string != "1" && tax.taxdetailsreference == row.taxdetailsreference && (tax.taxcode == "ICMS-ST" || tax.taxcode == "FCP-ST")>
+<#assign pST = pST + formata(tax.taxamount)>
+</#if>
+<#if (tax.taxcode == "FCP-DEVIDO" || (tax.taxcode == "ICMS-DIFAL" && !calculouFCP)) && tax.taxdetailsreference == row.taxdetailsreference && idDest?string == "2" && indFinal?string == "1" && indIEDest?string != "1" && indIEDest?string != "2">
+<#assign informaFcpDest = true>
+<#assign informaFcpDestTot = true>
+</#if>
+</#list>
+<#if tagDestinatario.custentity_sit_codmun?string?split(" - ")[1] == "RJ" || tagDestinatario.custentity_sit_codmun?string?split(" - ")[1] == "AL">
+<#if pFCPST != "" && pFCPST != "0.00" && pICMSST != "" && pICMSST != "0.00">
+<#assign pICMSST = formata(pICMSST?number - pFCPST?number)>
+</#if>
+</#if>
+<#assign vICMSST = formata(vICMSST)>
+<#if row.custcol_o2g_t_transac_item_c_cst_icst != "" && row.custcol_o2g_t_transac_item_c_cst_icst != "41"><#assign cstICMS = row.custcol_o2g_t_transac_item_c_cst_icst><#else><#assign cstICMS = row.custcol_sit_t_transac_item_c_cst_icms></#if>
+<ICMS>
+<#list transaction.taxdetails as tax>
+<#if (tax.taxcode == "ICMS" || tax.taxcode?contains("ICMS-COMB") || (tax.taxcode == "ICMS-ST" && cstICMS == "30")) && tax.taxdetailsreference == row.taxdetailsreference>
+<#assign tagICMS = true>
+<#if cstICMS == "00">
+<ICMS00>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>${cstICMS}</CST>
+<modBC>${row.custcol_o2s_t_transac_modal_bc_icms}</modBC>
+<vBC>${vBCICMS}</vBC>
+<pICMS>${pICMS}</pICMS>
+<vICMS>${vICMS}</vICMS>
+<#if pFCP != "" && pFCP != "0.00" && !informaFcpDest>
+<pFCP>${pFCP}</pFCP>
+<vFCP>${vFCP}</vFCP>
+</#if>
+</ICMS00>
+</#if>
+<#if cstICMS == "10">
+<ICMS10>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>${cstICMS}</CST>
+<modBC>${row.custcol_o2s_t_transac_modal_bc_icms}</modBC>
+<vBC>${vBCICMS}</vBC>
+<pICMS>${pICMS}</pICMS>
+<vICMS>${vICMS}</vICMS>
+<#if pFCP != "" && pFCP != "0.00" && !informaFcpDest>
+<vBCFCP>${vBCFCP}</vBCFCP>
+<pFCP>${pFCP}</pFCP>
+<vFCP>${vFCP}</vFCP>
+</#if>
+<modBCST>${row.custcol_o2s_t_transac_modal_bc_icmsst}</modBCST>
+<pMVAST>${formata(row.custcol_o2s_t_transac_item_mva_icms?number)}</pMVAST>
+<pRedBCST>${formata(100 - row.custcol_o2s_t_transac_per_red_bc_icst?number)}</pRedBCST>
+<vBCST>${vBCICMSST}</vBCST>
+<pICMSST>${pICMSST}</pICMSST>
+<vICMSST>${vICMSST}</vICMSST>
+<#if pFCPST != "" && pFCPST != "0.00">
+<vBCFCPST>${vBCFCPST}</vBCFCPST>
+<pFCPST>${pFCPST}</pFCPST>
+<vFCPST>${vFCPST}</vFCPST>
+</#if>
+</ICMS10>
+</#if>
+<#if cstICMS == "20">
+<ICMS20>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>${cstICMS}</CST>
+<modBC>${row.custcol_o2s_t_transac_modal_bc_icms}</modBC>
+<pRedBC>${formata(100 - row.custcol_o2s_t_transac_perc_red_bc_icm?number)}</pRedBC>
+<vBC>${vBCICMS}</vBC>
+<pICMS>${pICMS}</pICMS>
+<vICMS>${vICMS}</vICMS>
+<#if pFCP != "" && pFCP != "0.00" && !informaFcpDest>
+<vBCFCP>${vBCFCP}</vBCFCP>
+<pFCP>${pFCP}</pFCP>
+<vFCP>${vFCP}</vFCP>
+</#if>
+</ICMS20>
+</#if>
+<#if cstICMS == "30">
+<ICMS30>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>${cstICMS}</CST>
+<modBCST>${row.custcol_o2s_t_transac_modal_bc_icmsst}</modBCST>
+<pMVAST>${formata(row.custcol_o2s_t_transac_item_mva_icms?number)}</pMVAST>
+<pRedBCST>${formata(100 - row.custcol_o2s_t_transac_per_red_bc_icst?number)}</pRedBCST>
+<vBCST>${vBCICMSST}</vBCST>
+<pICMSST>${pICMSST}</pICMSST>
+<vICMSST>${vICMSST}</vICMSST>
+<#if pFCPST != "" && pFCPST != "0.00">
+<vBCFCPST>${vBCFCPST}</vBCFCPST>
+<pFCPST>${pFCPST}</pFCPST>
+<vFCPST>${vFCPST}</vFCPST>
+</#if>
+</ICMS30>
+</#if>
+<#if cstICMS == "51">
+<#assign vBICMS51 = formata(transaction.total)>
+<#assign vICMSOp = ((vBICMS51?number * pICMS?number)/100)>
+<#assign vICMSDif = ((formata(vICMSOp)?number * row.custcol_o2s_transaction_t_dife_icms?number)/100)>
+<#assign calculouICMS51 = true>
+<ICMS51>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>${cstICMS}</CST>
+<modBC>${row.custcol_o2s_t_transac_modal_bc_icms}</modBC>
+<pRedBC>${formata(100 - row.custcol_o2s_t_transac_perc_red_bc_icm?number)}</pRedBC>
+<vBC>${vBICMS51}</vBC>
+<pICMS>${pICMS}</pICMS>
+<vICMSOp>${formata(vICMSOp)}</vICMSOp>
+<pDif>${formata(row.custcol_o2s_transaction_t_dife_icms?number)}</pDif>
+<vICMSDif>${formata(vICMSDif)}</vICMSDif>
+<vICMS>${vICMS}</vICMS>
+<#if pFCP != "" && pFCP != "0.00" && !informaFcpDest>
+<vBCFCP>${vBCFCP}</vBCFCP>
+<pFCP>${pFCP}</pFCP>
+<vFCP>${vFCP}</vFCP>
+</#if>
+</ICMS51>
+</#if>
+<#if cstICMS == "70">
+<ICMS70>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>${cstICMS}</CST>
+<modBC>${row.custcol_o2s_t_transac_modal_bc_icms}</modBC>
+<pRedBC>${formata(100 - row.custcol_o2s_t_transac_perc_red_bc_icm?number)}</pRedBC>
+<vBC>${vBCICMS}</vBC>
+<pICMS>${pICMS}</pICMS>
+<vICMS>${vICMS}</vICMS>
+<#if pFCP != "" && pFCP != "0.00" && !informaFcpDest>
+<vBCFCP>${vBCFCP}</vBCFCP>
+<pFCP>${pFCP}</pFCP>
+<vFCP>${vFCP}</vFCP>
+</#if>
+<modBCST>${row.custcol_o2s_t_transac_modal_bc_icmsst}</modBCST>
+<pMVAST>${formata(row.custcol_o2s_t_transac_item_mva_icms?number)}</pMVAST>
+<pRedBCST>${formata(100 - row.custcol_o2s_t_transac_per_red_bc_icst?number)}</pRedBCST>
+<vBCST>${vBCICMSST}</vBCST>
+<pICMSST>${pICMSST}</pICMSST>
+<vICMSST>${vICMSST}</vICMSST>
+<#if pFCPST != "" && pFCPST != "0.00">
+<vBCFCPST>${vBCFCPST}</vBCFCPST>
+<pFCPST>${pFCPST}</pFCPST>
+<vFCPST>${vFCPST}</vFCPST>
+</#if>
+</ICMS70>
+</#if>
+<#if cstICMS == "90">
+<ICMS90>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>${cstICMS}</CST>
+<modBC><#if calculouICMSComb>1<#else>${row.custcol_o2s_t_transac_modal_bc_icms}</#if></modBC>
+<vBC>${vBCICMS}</vBC>
+<pRedBC>${formata(100 - row.custcol_o2s_t_transac_perc_red_bc_icm?number)}</pRedBC>
+<pICMS>${pICMS}</pICMS>
+<vICMS>${vICMS}</vICMS>
+<#if pFCP != "" && pFCP != "0.00" && !informaFcpDest>
+<vBCFCP>${vBCFCP}</vBCFCP>
+<pFCP>${pFCP}</pFCP>
+<vFCP>${vFCP}</vFCP>
+</#if>
+<modBCST>${row.custcol_o2s_t_transac_modal_bc_icmsst}</modBCST>
+<pMVAST>${formata(row.custcol_o2s_t_transac_item_mva_icms?number)}</pMVAST>
+<pRedBCST>${formata(100 - row.custcol_o2s_t_transac_per_red_bc_icst?number)}</pRedBCST>
+<vBCST>${vBCICMSST}</vBCST>
+<pICMSST><#if calculouICMSComb>0.00<#else>${pICMSST}</#if></pICMSST>
+<vICMSST>${vICMSST}</vICMSST>
+<#if pFCPST != "" && pFCPST != "0.00">
+<vBCFCPST>${vBCFCPST}</vBCFCPST>
+<pFCPST>${pFCPST}</pFCPST>
+<vFCPST>${vFCPST}</vFCPST>
+</#if>
+</ICMS90>
+</#if>
+<#if transaction.custbody_o2s_t_transac_cod_crt == "1">
+<#if row.custcol_o2s_t_transac_cod_csosn == "101">
+<ICMSSN101>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CSOSN>${row.custcol_o2s_t_transac_cod_csosn}</CSOSN>
+<pCredSN>${transaction.custbody_o2s_transaction_n_val_simples}</pCredSN>
+<vCredICMSSN>${transaction.custbody_sit_transaction_a_out_inf}</vCredICMSSN>
+</ICMSSN101>
+</#if>
+<#if (row.custcol_o2s_t_transac_cod_csosn == "102" || row.custcol_o2s_t_transac_cod_csosn == "103" || row.custcol_o2s_t_transac_cod_csosn == "300" || row.custcol_o2s_t_transac_cod_csosn == "400")>
+<ICMSSN102>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CSOSN>${row.custcol_o2s_t_transac_cod_csosn}</CSOSN>
+</ICMSSN102>
+<#if row.custcol_o2s_t_transac_cod_csosn == "400">
+<#assign withICMS = 1>
+</#if>
+</#if>
+<#if row.custcol_o2s_t_transac_cod_csosn == "201">
+<ICMSSN201>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CSOSN>${row.custcol_o2s_t_transac_cod_csosn}</CSOSN>
+<modBCST>${row.custcol_o2s_t_transac_modal_bc_icmsst}</modBCST>
+<pMVAST>${formata(row.custcol_o2s_t_transac_item_mva_icms?number)}</pMVAST>
+<pRedBCST>${formata(100 - row.custcol_o2s_t_transac_per_red_bc_icst?number)}</pRedBCST>
+<vBCST>${vBCICMSST}</vBCST>
+<pICMSST>${pICMSST}</pICMSST>
+<vICMSST>${vICMSST}</vICMSST>
+<#if pFCPST != "" && pFCPST != "0.00">
+<vBCFCPST>${vBCFCPST}</vBCFCPST>
+<pFCPST>${pFCPST}</pFCPST>
+<vFCPST>${vFCPST}</vFCPST>
+</#if>
+<pCredSN>${transaction.custbody_o2s_transaction_n_val_simples}</pCredSN>
+<vCredICMSSN>${transaction.custbody_sit_transaction_a_out_inf}</vCredICMSSN>
+</ICMSSN201>
+</#if>
+<#if (row.custcol_o2s_t_transac_cod_csosn == "202" || row.custcol_o2s_t_transac_cod_csosn == "203")>
+<ICMSSN202>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CSOSN>${row.custcol_o2s_t_transac_cod_csosn}</CSOSN>
+<modBCST>${row.custcol_o2s_t_transac_modal_bc_icmsst}</modBCST>
+<pMVAST>${formata(row.custcol_o2s_t_transac_item_mva_icms?number)}</pMVAST>
+<pRedBCST>${formata(100 - row.custcol_o2s_t_transac_per_red_bc_icst?number)}</pRedBCST>
+<vBCST>${vBCICMSST}</vBCST>
+<pICMSST>${pICMSST}</pICMSST>
+<vICMSST>${vICMSST}</vICMSST>
+<#if pFCPST != "" && pFCPST != "0.00">
+<vBCFCPST>${vBCFCPST}</vBCFCPST>
+<pFCPST>${pFCPST}</pFCPST>
+<vFCPST>${vFCPST}</vFCPST>
+</#if>
+</ICMSSN202>
+</#if>
+<#if row.custcol_o2s_t_transac_cod_csosn == "500">
+<#assign withICMS = 1>
+<ICMSSN500>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CSOSN>${row.custcol_o2s_t_transac_cod_csosn}</CSOSN>
+<#if preencheTagsImpostoRetidoAnteriormente(row.olditemid row.quantity?number)>
+<vBCSTRet>${vBCSTRet}</vBCSTRet>
+<pST>${pST}</pST>
+<vICMSSubstituto>${vICMSSubstituto}</vICMSSubstituto>
+<vICMSSTRet>${vICMSSTRet}</vICMSSTRet>
+<#if vBCFCPSTRet?number gt 0 && pFCPSTRet?number gt 0 && vFCPSTRet?number gt 0>
+<vBCFCPSTRet>${vBCFCPSTRet}</vBCFCPSTRet>
+<pFCPSTRet>${pFCPSTRet}</pFCPSTRet>
+<vFCPSTRet>${vFCPSTRet}</vFCPSTRet>
+</#if>
+</#if>
+<#if tagDestinatario.custentity_o2s_c_customer_consu_final>
+<pRedBCEfet>${pRedBCEfet}</pRedBCEfet>
+<vBCEfet>${vBCEfet}</vBCEfet>
+<pICMSEfet>${pICMSEfet}</pICMSEfet>
+<vICMSEfet>${vICMSEfet}</vICMSEfet>
+</#if>
+</ICMSSN500>
+</#if>
+<#if row.custcol_o2s_t_transac_cod_csosn == "900">
+<ICMSSN900>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CSOSN>${row.custcol_o2s_t_transac_cod_csosn}</CSOSN>
+<modBC>${row.custcol_o2s_t_transac_modal_bc_icms}</modBC>
+<vBC>${vBCICMS}</vBC>
+<pRedBC>${formata(100 - row.custcol_o2s_t_transac_perc_red_bc_icm?number)}</pRedBC>
+<pICMS>${pICMS}</pICMS>
+<vICMS>${vICMS}</vICMS>
+<modBCST>${row.custcol_o2s_t_transac_modal_bc_icmsst}</modBCST>
+<pMVAST>${formata(row.custcol_o2s_t_transac_item_mva_icms?number)}</pMVAST>
+<pRedBCST>${formata(100 - row.custcol_o2s_t_transac_per_red_bc_icst?number)}</pRedBCST>
+<vBCST>${vBCICMSST}</vBCST>
+<pICMSST>${pICMSST}</pICMSST>
+<vICMSST>${vICMSST}</vICMSST>
+<pCredSN>${transaction.custbody_o2s_transaction_n_val_simples}</pCredSN>
+<vCredICMSSN>${transaction.custbody_sit_transaction_a_out_inf}</vCredICMSSN>
+<#if pFCPST != "" && pFCPST != "0.00">
+<vBCFCPST>${vBCFCPST}</vBCFCPST>
+<pFCPST>${pFCPST}</pFCPST>
+<vFCPST>${vFCPST}</vFCPST>
+</#if>
+</ICMSSN900>
+</#if>
+</#if>
+</#if>
+</#list>
+<#if transaction.custbody_o2s_t_transac_cod_crt == "1" && (row.custcol_o2s_t_transac_cod_csosn == "102" || row.custcol_o2s_t_transac_cod_csosn == "103" || row.custcol_o2s_t_transac_cod_csosn == "300" || row.custcol_o2s_t_transac_cod_csosn == "400") && withICMS == 0>
+<ICMSSN102>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CSOSN>${row.custcol_o2s_t_transac_cod_csosn}</CSOSN>
+</ICMSSN102>
+</#if>
+<#if transaction.custbody_o2s_t_transac_cod_crt == "1" && row.custcol_o2s_t_transac_cod_csosn == "500" && withICMS == 0>
+<ICMSSN500>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CSOSN>${row.custcol_o2s_t_transac_cod_csosn}</CSOSN>
+<#if pFCPST != "" && pFCPST != "0.00">
+<vBCFCPST>${vBCFCPST}</vBCFCPST>
+<pFCPST>${pFCPST}</pFCPST>
+<vFCPST>${vFCPST}</vFCPST>
+</#if>
+</ICMSSN500>
+</#if>
+<#if cstICMS == "40" || cstICMS == "41" || cstICMS == "50" >
+<#assign tagICMS = true>
+<ICMS40>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>${cstICMS}</CST>
+<#if calculouICMSZFM>
+<vICMSDeson>${vICMSDeson}</vICMSDeson>
+<motDesICMS>${row.custcol_o2s_t_transac_item_deson_icms}</motDesICMS>
+</#if>
+</ICMS40>
+</#if>
+<#if cstICMS == "60">
+<#if row.custcol_o2s_transaction_t_codigo_simp?string == "" || (row.custcol_o2s_transaction_t_codigo_simp?string != "" && !cProdANP?seq_contains(row.custcol_o2s_transaction_t_codigo_simp)) >
+<ICMS60>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>${cstICMS}</CST>
+<#if pFCPST != "" && pFCPST != "0.00" && !tagDestinatario.custentity_o2s_c_customer_consu_final>
+<vBCFCPST>${vBCFCPST}</vBCFCPST>
+<pFCPST>${pFCPST}</pFCPST>
+<vFCPST>${vFCPST}</vFCPST>
+</#if>
+<#if preencheTagsImpostoRetidoAnteriormente(row.olditemid row.quantity?number)>
+<vBCSTRet>${vBCSTRet}</vBCSTRet>
+<pST>${pST}</pST>
+<vICMSSubstituto>${vICMSSubstituto}</vICMSSubstituto>
+<vICMSSTRet>${vICMSSTRet}</vICMSSTRet>
+<#if vBCFCPSTRet?number gt 0 && pFCPSTRet?number gt 0 && vFCPSTRet?number gt 0>
+<vBCFCPSTRet>${vBCFCPSTRet}</vBCFCPSTRet>
+<pFCPSTRet>${pFCPSTRet}</pFCPSTRet>
+<vFCPSTRet>${vFCPSTRet}</vFCPSTRet>
+</#if>
+</#if>
+<#if tagDestinatario.custentity_o2s_c_customer_consu_final>
+<pRedBCEfet>${pRedBCEfet}</pRedBCEfet>
+<vBCEfet>${vBCEfet}</vBCEfet>
+<pICMSEfet>${pICMSEfet}</pICMSEfet>
+<vICMSEfet>${vICMSEfet}</vICMSEfet>
+</#if>
+</ICMS60>
+<#else>
+<ICMSST>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>${cstICMS}</CST>
+<vBCSTRet>${transaction.custbody_o2s_t_bc_icms_comb}</vBCSTRet>
+<vICMSSTRet>${transaction.custbody_o2s_t_valor_icms_comb}</vICMSSTRet>
+<vBCSTDest>0.00</vBCSTDest>
+<vICMSSTDest>0.00</vICMSSTDest>
+</ICMSST>
+</#if>
+</#if>
+<#list transaction.item as tax>
+<#if tax.custcol_o2s_transac_c_item_imp && tax.item?string?contains("ICMS-ST") && tax.custcol_o2s_transac_i_item_imp_li_ref?number == row.line?number>
+<#assign tagICMS = true>
+<#assign vBCICMSST = formata(tax.custcol_o2s_transac_v_item_imp_b_calc)>
+<#assign pICMSST = formataRate(tax.custcol_o2s_transac_p_item_imp_aliq)>
+<#assign vICMSST = formata(tax.amount)>
+<#assign valorTotalICMSST = valorTotalICMSST + tax.amount>
+<#assign valorTotalBCICMSST = valorTotalBCICMSST + tax.custcol_o2s_transac_v_item_imp_b_calc>
+
+<#if cstICMS == "10">
+<ICMS10>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>${cstICMS}</CST>
+<modBC>${row.custcol_o2s_t_transac_modal_bc_icms}</modBC>
+<vBC>0.00</vBC>
+<pICMS>0.00</pICMS>
+<vICMS>0.00</vICMS>
+<modBCST>${row.custcol_o2s_t_transac_modal_bc_icmsst}</modBCST>
+<pMVAST>${formata(row.custcol_o2s_t_transac_item_mva_icms?number)}</pMVAST>
+<pRedBCST>${formata(100 - row.custcol_o2s_t_transac_per_red_bc_icst?number)}</pRedBCST>
+<vBCST>${vBCICMSST}</vBCST>
+<pICMSST>${pICMSST}</pICMSST>
+<vICMSST>${vICMSST}</vICMSST>
+<#if pFCPST != "" && pFCPST != "0.00">
+<vBCFCPST>${vBCFCPST}</vBCFCPST>
+<pFCPST>${pFCPST}</pFCPST>
+<vFCPST>${vFCPST}</vFCPST>
+</#if>
+</ICMS10>
+</#if>
+<#if cstICMS == "30">
+<ICMS30>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>${cstICMS}</CST>
+<modBCST>${row.custcol_o2s_t_transac_modal_bc_icmsst}</modBCST>
+<pMVAST>${formata(row.custcol_o2s_t_transac_item_mva_icms?number)}</pMVAST>
+<pRedBCST>${formata(100 - row.custcol_o2s_t_transac_per_red_bc_icst?number)}</pRedBCST>
+<vBCST>${vBCICMSST}</vBCST>
+<pICMSST>${pICMSST}</pICMSST>
+<vICMSST>${vICMSST}</vICMSST>
+<#if pFCPST != "" && pFCPST != "0.00">
+<vBCFCPST>${vBCFCPST}</vBCFCPST>
+<pFCPST>${pFCPST}</pFCPST>
+<vFCPST>${vFCPST}</vFCPST>
+</#if>
+</ICMS30>
+</#if>
+<#if cstICMS == "60">
+<ICMS60>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>${cstICMS}</CST>
+<#if pFCPST != "" && pFCPST != "0.00" && !tagDestinatario.custentity_o2s_c_customer_consu_final>
+<vBCFCPST>${vBCFCPST}</vBCFCPST>
+<pFCPST>${pFCPST}</pFCPST>
+<vFCPST>${vFCPST}</vFCPST>
+</#if>
+<#if preencheTagsImpostoRetidoAnteriormente(row.olditemid row.quantity?number)>
+<vBCSTRet>${vBCSTRet}</vBCSTRet>
+<pST>${pST}</pST>
+<vICMSSubstituto>${vICMSSubstituto}</vICMSSubstituto>
+<vICMSSTRet>${vICMSSTRet}</vICMSSTRet>
+<#if vBCFCPSTRet?number gt 0 && pFCPSTRet?number gt 0 && vFCPSTRet?number gt 0>
+<vBCFCPSTRet>${vBCFCPSTRet}</vBCFCPSTRet>
+<pFCPSTRet>${pFCPSTRet}</pFCPSTRet>
+<vFCPSTRet>${vFCPSTRet}</vFCPSTRet>
+</#if>
+</#if>
+<#if tagDestinatario.custentity_o2s_c_customer_consu_final>
+<pRedBCEfet>${pRedBCEfet}</pRedBCEfet>
+<vBCEfet>${vBCEfet}</vBCEfet>
+<pICMSEfet>${pICMSEfet}</pICMSEfet>
+<vICMSEfet>${vICMSEfet}</vICMSEfet>
+</#if>
+</ICMS60>
+</#if>
+<#if cstICMS == "70">
+<ICMS70>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>${cstICMS}</CST>
+<modBC>${row.custcol_o2s_t_transac_modal_bc_icms}</modBC>
+<pRedBC>${formata(100 - row.custcol_o2s_t_transac_perc_red_bc_icm?number)}</pRedBC>
+<vBC>0.00</vBC>
+<pICMS>0.00</pICMS>
+<vICMS>0.00</vICMS>
+<modBCST>${row.custcol_o2s_t_transac_modal_bc_icmsst}</modBCST>
+<pMVAST>${formata(row.custcol_o2s_t_transac_item_mva_icms?number)}</pMVAST>
+<pRedBCST>${formata(100 - row.custcol_o2s_t_transac_per_red_bc_icst?number)}</pRedBCST>
+<vBCST>${vBCICMSST}</vBCST>
+<pICMSST>${pICMSST}</pICMSST>
+<vICMSST>${vICMSST}</vICMSST>
+<#if pFCPST != "" && pFCPST != "0.00">
+<vBCFCPST>${vBCFCPST}</vBCFCPST>
+<pFCPST>${pFCPST}</pFCPST>
+<vFCPST>${vFCPST}</vFCPST>
+</#if>
+</ICMS70>
+</#if>
+<#if cstICMS == "90">
+<ICMS90>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>${cstICMS}</CST>
+<modBC><#if calculouICMSComb>1<#else>${row.custcol_o2s_t_transac_modal_bc_icms}</#if></modBC>
+<vBC>0.00</vBC>
+<pRedBC>${formata(100 - row.custcol_o2s_t_transac_perc_red_bc_icm?number)}</pRedBC>
+<pICMS>0.00</pICMS>
+<vICMS>0.00</vICMS>
+<#if pFCP != "" && pFCP != "0.00" && !informaFcpDest>
+<vBCFCP>${vBCFCP}</vBCFCP>
+<pFCP>${pFCP}</pFCP>
+<vFCP>${vFCP}</vFCP>
+</#if>
+<modBCST>${row.custcol_o2s_t_transac_modal_bc_icmsst}</modBCST>
+<pMVAST>${formata(row.custcol_o2s_t_transac_item_mva_icms?number)}</pMVAST>
+<pRedBCST>${formata(100 - row.custcol_o2s_t_transac_per_red_bc_icst?number)}</pRedBCST>
+<vBCST>${vBCICMSST}</vBCST>
+<pICMSST><#if calculouICMSComb>0.00<#else>${pICMSST}</#if></pICMSST>
+<vICMSST>${vICMSST}</vICMSST>
+<#if pFCPST != "" && pFCPST != "0.00">
+<vBCFCPST>${vBCFCPST}</vBCFCPST>
+<pFCPST>${pFCPST}</pFCPST>
+<vFCPST>${vFCPST}</vFCPST>
+</#if>
+</ICMS90>
+</#if>
+</#if>
+</#list>
+<#if !tagICMS && transaction.custbody_o2s_invoice_c_complementar>
+<ICMS40>
+<orig>${row.custcol_o2s_t_transac_orig_mercadoria}</orig>
+<CST>40</CST>
+<#if calculouICMSZFM>
+<vICMSDeson>${vICMSDeson}</vICMSDeson>
+<motDesICMS>${row.custcol_o2s_t_transac_item_deson_icms}</motDesICMS>
+</#if>
+</ICMS40>
+</#if>
+</ICMS>
+<#if tipoNota != "NFC-e">
+<IPI>
+<#list transaction.taxdetails as tax>
+<#if tax.taxcode == "IPI" && tax.taxdetailsreference == row.taxdetailsreference>
+<#if row.custcol_sit_t_transac_item_c_cst_ipi == "00" || row.custcol_sit_t_transac_item_c_cst_ipi == "49" || row.custcol_sit_t_transac_item_c_cst_ipi == "50" || row.custcol_sit_t_transac_item_c_cst_ipi == "99">
+<#if finNfeDevolucao != "4">
+<cSelo>${row.custcol_o2s_t_transac_cod_sel_con_ipi}</cSelo>
+<qSelo>${row.quantity?string?replace(",","")?replace(".","")}</qSelo>
+<cEnq>${row.custcol_o2s_t_transac_cod_enquad_ipi?left_pad(3,"0")}</cEnq>
+<IPITrib>
+<CST>${row.custcol_sit_t_transac_item_c_cst_ipi}</CST>
+<vBC>${formata(tax.taxbasis)}</vBC>
+<pIPI>${formataRate(tax.taxrate)}</pIPI>
+<vIPI>${formata(tax.taxamount)}</vIPI>
+</IPITrib>
+</#if>
+<#assign valorItemIPI = valorItemIPI + tax.taxamount>
+</#if>
+</#if>
+</#list>
+<#if finNfeDevolucao != "4" && row.custcol_sit_t_transac_item_c_cst_ipi != "" && row.custcol_sit_t_transac_item_c_cst_ipi != "00" && row.custcol_sit_t_transac_item_c_cst_ipi != "49" && row.custcol_sit_t_transac_item_c_cst_ipi != "50" && row.custcol_sit_t_transac_item_c_cst_ipi != "99">
+<cSelo>${row.custcol_o2s_t_transac_cod_sel_con_ipi}</cSelo>
+<qSelo>${row.quantity?string?replace(",","")?replace(".","")}</qSelo>
+<cEnq>${row.custcol_o2s_t_transac_cod_enquad_ipi?left_pad(3,"0")}</cEnq>
+<IPINT>
+<CST>${row.custcol_sit_t_transac_item_c_cst_ipi}</CST>
+</IPINT>
+</#if>
+<#list transaction.item as tax>
+<#if tax.custcol_o2s_transac_c_item_imp && tax.item?string?contains("IPI") && tax.custcol_o2s_transac_i_item_imp_li_ref?number == row.line?number>
+<#if finNfeDevolucao != "4">
+<cSelo>${row.custcol_o2s_t_transac_cod_sel_con_ipi}</cSelo>
+<qSelo>${row.quantity?string?replace(",","")?replace(".","")}</qSelo>
+<cEnq>${row.custcol_o2s_t_transac_cod_enquad_ipi?left_pad(3,"0")}</cEnq>
+<#if row.custcol_sit_t_transac_item_c_cst_ipi == "00" || row.custcol_sit_t_transac_item_c_cst_ipi == "49" || row.custcol_sit_t_transac_item_c_cst_ipi == "50" || row.custcol_sit_t_transac_item_c_cst_ipi == "99">
+<IPITrib>
+<CST>${row.custcol_sit_t_transac_item_c_cst_ipi}</CST>
+<vBC>${formata(tax.custcol_o2s_transac_v_item_imp_b_calc)}</vBC>
+<pIPI>${formataRate(tax.custcol_o2s_transac_p_item_imp_aliq)}</pIPI>
+<vIPI>${formata(tax.amount)}</vIPI>
+</IPITrib>
+</#if>
+</#if>
+<#assign valorTotalIPI = valorTotalIPI + tax.amount>
+<#assign valorItemIPI = valorItemIPI + tax.amount>
+</#if>
+</#list>
+</IPI>
+</#if>
+<#list transaction.taxdetails as tax>
+<#if tax.taxcode == "II" && tax.taxdetailsreference == row.taxdetailsreference>
+<II>
+<vBC>${formata(tax.taxbasis)}</vBC>
+<vDespAdu>${formata(transaction.custbody_o2s_transaction_v_val_desp_ad)}</vDespAdu>
+<vII>${formata(tax.taxamount)}</vII>
+<vIOF>${formata(transaction.custbody_o2s_transaction_v_iof)}</vIOF>
+</II>
+</#if>
+</#list>
+<#if calculouICMSComb>
+<II>
+<vBC>0.00</vBC>
+<vDespAdu>0.00</vDespAdu>
+<vII>0.00</vII>
+<vIOF>0.00</vIOF>
+</II>
+</#if>
+<#list transaction.taxdetails as tax>
+<#if (tax.taxcode == "PIS-DEVIDO" || tax.taxcode == "PIS-REG-CUM" || tax.taxcode == "PIS-REG-NAO-CUM" || tax.taxcode == "PIS-RETIDO" || tax.taxcode == "PIS-CREDITO" || tax.taxcode == "PIS-PAUTA-IMP" || tax.taxcode == "PIS-PAUTA") && tax.taxdetailsreference == row.taxdetailsreference>
+<#assign calculouAliq = 1>
+<#if row.custcol_o2s_t_transac_cst_pis_st = "F">
+<PIS>
+<#if row.custcol_o2g_t_transac_item_c_cst_pis?number <= 9>
+<#if row.custcol_o2g_t_transac_item_c_cst_pis == "01" || row.custcol_o2g_t_transac_item_c_cst_pis == "02">
+<PISAliq>
+<CST>${row.custcol_o2g_t_transac_item_c_cst_pis}</CST>
+<vBC>${formata(tax.taxbasis)}</vBC>
+<pPIS>${formataRate(tax.taxrate)}</pPIS>
+<vPIS>${formata(tax.taxamount)}</vPIS>
+</PISAliq>
+</#if>
+<#if row.custcol_o2g_t_transac_item_c_cst_pis == "03">
+<PISQtde>
+<CST>${row.custcol_o2g_t_transac_item_c_cst_pis}</CST>
+<qBCProd>${formatNumberValue(row.quantity?string?replace(".", "")?replace(",", ".") 4 ".")}</qBCProd>
+<vAliqProd>${formata(formata(tax.taxamount)?number/formatNumberValue(row.quantity?string?replace(".", "")?replace(",", ".") 4 ".")?number)}</vAliqProd>
+<vPIS>${formata(tax.taxamount)}</vPIS>
+</PISQtde>
+</#if>
+<#else>
+<PISOutr>
+<CST>${row.custcol_o2g_t_transac_item_c_cst_pis}</CST>
+<#if tax.taxcode != "PIS-PAUTA-IMP" && tax.taxcode != "PIS-PAUTA">
+<vBC>${formata(tax.taxbasis)}</vBC>
+<pPIS>${formata(tax.taxrate)}</pPIS>
+<#else>
+<qBCProd>0.0000</qBCProd>
+<vAliqProd>${formata(tax.taxamount)}</vAliqProd>
+</#if>
+<vPIS>${formata(tax.taxamount)}</vPIS>
+</PISOutr>
+</#if>
+</PIS>
+<#else>
+<PISST>
+<vBC>${formata(tax.taxbasis)}</vBC>
+<pPIS>${formataRate(tax.taxrate)}</pPIS>
+<vPIS>${formata(tax.taxamount)}</vPIS>
+</PISST>
+</#if>
+</#if>
+</#list>
+<#if row.custcol_o2g_t_transac_item_c_cst_pis == "04" || row.custcol_o2g_t_transac_item_c_cst_pis == "05" || row.custcol_o2g_t_transac_item_c_cst_pis == "06" || row.custcol_o2g_t_transac_item_c_cst_pis == "07" || row.custcol_o2g_t_transac_item_c_cst_pis == "08" || row.custcol_o2g_t_transac_item_c_cst_pis == "09">
+<#assign calculouAliq = 1>
+<PIS>
+<PISNT>
+<CST>${row.custcol_o2g_t_transac_item_c_cst_pis}</CST>
+</PISNT>
+</PIS>
+</#if>
+<#if cstPisCofins?seq_contains(row.custcol_o2g_t_transac_item_c_cst_pis) && calculouAliq == 0>
+<PIS>
+<PISOutr>
+<CST>${row.custcol_o2g_t_transac_item_c_cst_pis}</CST>
+<vBC>0.00</vBC>
+<pPIS>0.00</pPIS>
+<vPIS>${formata(valorTotalPis)}</vPIS>
+</PISOutr>
+</PIS>
+</#if>
+<#list transaction.taxdetails as tax>
+<#if (tax.taxcode == "COFINS-DEVIDO" || tax.taxcode == "COFINS-REG-CUM" || tax.taxcode == "COFINS-REG-NAO-CUM" || tax.taxcode == "COFINS-RETIDO" || tax.taxcode == "COFINS-CREDITO" || tax.taxcode == "COFINS-PAUTA-IMP" || tax.taxcode == "COFINS-PAUTA") && tax.taxdetailsreference == row.taxdetailsreference>
+<#assign calculouAliq = 1>
+<#if row.custcol_o2s_t_transac_cst_cofins_st = "F">
+<COFINS>
+<#if row.custcol_o2g_t_transac_item_c_cst_cofi?number <= 9>
+<#if row.custcol_o2g_t_transac_item_c_cst_cofi == "01" || row.custcol_o2g_t_transac_item_c_cst_cofi == "02">
+<COFINSAliq>
+<CST>${row.custcol_o2g_t_transac_item_c_cst_cofi}</CST>
+<vBC>${formata(tax.taxbasis)}</vBC>
+<pCOFINS>${formataRate(tax.taxrate)}</pCOFINS>
+<vCOFINS>${formata(tax.taxamount)}</vCOFINS>
+</COFINSAliq>
+</#if>
+<#if row.custcol_o2g_t_transac_item_c_cst_cofi == "03">
+<COFINSQtde>
+<CST>${row.custcol_o2g_t_transac_item_c_cst_cofi}</CST>
+<qBCProd>${formatNumberValue(row.quantity?string?replace(".", "")?replace(",", ".") 4 ".")}</qBCProd>
+<vAliqProd>${formata(formata(tax.taxamount)?number/formatNumberValue(row.quantity?string?replace(".", "")?replace(",", ".") 4 ".")?number)}</vAliqProd>
+<vCOFINS>${formata(tax.taxamount)}</vCOFINS>
+</COFINSQtde>
+</#if>
+<#else>
+<COFINSOutr>
+<CST>${row.custcol_o2g_t_transac_item_c_cst_cofi}</CST>
+<#if tax.taxcode != "COFINS-PAUTA-IMP" && tax.taxcode != "COFINS-PAUTA">
+<vBC>${formata(tax.taxbasis)}</vBC>
+<pCOFINS>${formata(tax.taxrate)}</pCOFINS>
+<#else>
+<qBCProd>0.0000</qBCProd>
+<vAliqProd>${formata(tax.taxamount)}</vAliqProd>
+</#if>
+<vCOFINS>${formata(tax.taxamount)}</vCOFINS>
+</COFINSOutr>
+</#if>
+</COFINS>
+<#else>
+<COFINSST>
+<vBC>${formata(tax.taxbasis)}</vBC>
+<pCOFINS>${formataRate(tax.taxrate)}</pCOFINS>
+<vCOFINS>${formata(tax.taxamount)}</vCOFINS>
+</COFINSST>
+</#if>
+</#if>
+</#list>
+<#if row.custcol_o2g_t_transac_item_c_cst_cofi == "04" || row.custcol_o2g_t_transac_item_c_cst_cofi == "05" || row.custcol_o2g_t_transac_item_c_cst_cofi == "06" || row.custcol_o2g_t_transac_item_c_cst_cofi == "07" || row.custcol_o2g_t_transac_item_c_cst_cofi == "08" || row.custcol_o2g_t_transac_item_c_cst_cofi == "09">
+<#assign calculouAliq = 1>
+<COFINS>
+<COFINSNT>
+<CST>${row.custcol_o2g_t_transac_item_c_cst_cofi}</CST>
+</COFINSNT>
+</COFINS>
+</#if>
+<#if cstPisCofins?seq_contains(row.custcol_o2g_t_transac_item_c_cst_pis) && calculouAliq == 0>
+<COFINS>
+<COFINSOutr>
+<CST>${row.custcol_o2g_t_transac_item_c_cst_pis}</CST>
+<vBC>0.00</vBC>
+<pCOFINS>0.00</pCOFINS>
+<vCOFINS>${formata(valorTotalCofins)}</vCOFINS>
+</COFINSOutr>
+</COFINS>
+</#if>
+<#list transaction.taxdetails as tax>
+<#if (tax.taxcode == "FCP-DEVIDO" || (tax.taxcode == "ICMS-DIFAL" && !calculouFCP)) && tax.taxdetailsreference == row.taxdetailsreference && idDest?string == "2" && indFinal?string == "1" && indIEDest?string != "1" && indIEDest?string != "2" >
+<ICMSUFDest>
+<vBCUFDest>${vBCICMS}</vBCUFDest>
+<vBCFCPUFDest>${vBCFCP}</vBCFCPUFDest>
+<pFCPUFDest><#if tax.taxcode == "FCP-DEVIDO">${formataRate(tax.taxrate)}<#else>0.00</#if></pFCPUFDest>
+<pICMSUFDest>${pICMSUFDest}</pICMSUFDest>
+<pICMSInter>${pICMS}</pICMSInter>
+<pICMSInterPart>${formata(row.custcol_o2s_transac_p_prov_part_icms?number)}</pICMSInterPart>
+<vFCPUFDest><#if tax.taxcode == "FCP-DEVIDO">${formata(tax.taxamount)}<#else>0.00</#if></vFCPUFDest>
+<vICMSUFDest>${vICMSUFDest}</vICMSUFDest>
+<vICMSUFRemet>${vICMSUFRemet}</vICMSUFRemet>
+</ICMSUFDest>
+</#if>
+</#list>
+<#if transaction.custbody_o2s_transaction_t_cha_nfe_ref != "" && transaction.type == "custinvc" && !transaction.custbody_o2s_invoice_c_complement_icms>
+<PIS>
+<PISAliq>
+<CST>${row.custcol_o2g_t_transac_item_c_cst_pis}</CST>
+<vBC>0.00</vBC>
+<pPIS>0.00</pPIS>
+<vPIS>0.00</vPIS>
+</PISAliq>
+</PIS>
+<COFINS>
+<COFINSAliq>
+<CST>${row.custcol_o2g_t_transac_item_c_cst_cofi}</CST>
+<vBC>0.00</vBC>
+<pCOFINS>0.00</pCOFINS>
+<vCOFINS>0.00</vCOFINS>
+</COFINSAliq>
+</COFINS>
+</#if>
+</#if>
+</imposto>
+<#if finNfeDevolucao == "4">
+<impostoDevol>
+<pDevol>100.00</pDevol>
+<IPI>
+<vIPIDevol>${formata(valorItemIPI)}</vIPIDevol>
+</IPI>
+</impostoDevol>
+</#if>
+<infAdProd>${infoICMSComb}</infAdProd>
+</det>
+<#assign id = id + 1>
+<#if firstItem>
+<#assign firstItem = false>
+</#if>
+</#if>
+</#if>
+</#list>
+<#if formata(transaction.total) != ""><#assign total = formataTotal(transaction.total)?number><#else><#assign total = formataTotal(transaction.usertotal)?number></#if>
+<#assign seguro = formataTotal(transaction.custbody_sit_transaction_n_vl_seguro)?number>
+<#assign despesa = vOutro?number>
+<#if transaction.type != "vendbill">
+<#assign vNF = total + seguro + despesa>
+<#else>
+<#assign vNF = total>
+</#if>
+<#if tipoNota == "NFC-e">
+<#assign vNF = vNF + valorTaxaCartao - valorTotalIPI>
+<#else>
+<#if transaction.type != "vendbill">
+<#assign vNF = vNF + valorTaxaCartao + valorTotalICMSComb>
+</#if>
+</#if>
+<total>
+<ICMSTot>
+<vBC><#if calculouICMS51>${vBICMS51}<#else>${formata(valorTotalBCICMS)}</#if></vBC>
+<vICMS>${formata(valorTotalICMS)}</vICMS>
+<vICMSDeson>${formata(valorTotalICMSDeson)}</vICMSDeson>
+<#if informaFcpDestTot>
+<vFCPUFDest>${formata(valorTotalFCP)}</vFCPUFDest>
+</#if>
+<#if informaFcpDestTot>
+<vICMSUFDest>${formata(valorTotalDifalDest)}</vICMSUFDest>
+</#if>
+<#if informaFcpDestTot>
+<vICMSUFRemet>${formata(valorTotalDifalOrig)}</vICMSUFRemet>
+</#if>
+<#if informaFcpDestTot>
+<vFCP>0.00</vFCP>
+<#else>
+<vFCP>${formata(valorTotalFCP)}</vFCP>
+</#if>
+<vBCST>${formata(valorTotalBCICMSST)}</vBCST>
+<vST>${formata(valorTotalICMSST)}</vST>
+<vFCPST>${formata(valorTotalFCPST)}</vFCPST>
+<vFCPSTRet>${formata(vFCPSTRetTotal)}</vFCPSTRet>
+<vProd>${formata(valorTotalProdutos)}</vProd>
+<vFrete>${formataDecimal(shippingcost)}</vFrete>
+<vSeg>${formataDecimal(transaction.custbody_sit_transaction_n_vl_seguro)}</vSeg>
+<vDesc>${formataDecimal(valorDesconto)}</vDesc>
+<vII>${formataDecimal(valorTotalII)}</vII>
+<vIPI><#if tipoNota == "NFC-e" || finNfeDevolucao == "4">0.00<#else>${formata(valorTotalIPI)}</#if></vIPI>
+<vIPIDevol><#if finNfeDevolucao == "4">${formata(valorTotalIPI)}<#else>0.00</#if></vIPIDevol>
+<vPIS>${formata(valorTotalPis)}</vPIS>
+<vCOFINS>${formata(valorTotalCofins)}</vCOFINS>
+<vOutro>${formata(vOutro)}</vOutro>
+<vNF>${formata(vNF)}</vNF>
+<#if transaction.custbody_o2s_vlr_ibpt_t_by_item != "" && transaction.custbody_o2s_transaction_v_tribut_apro gt 0>
+<vTotTrib>${formata(valorTotalIBPT)}</vTotTrib>
+</#if>
+</ICMSTot>
+</total>
+<transp>
+<modFrete>${transaction.custbody_sit_transaction_t_tipo_frete}</modFrete>
+<transporta>
+<#if transaction.custbody_o2s_t_invoice_cpf_cnpj_transp?length == 11>
+<CPF>${transaction.custbody_o2s_t_invoice_cpf_cnpj_transp?replace("/", "")?replace("-", "")?replace(".", "")?replace(".", "")}</CPF>
+<#else>
+<CNPJ>${transaction.custbody_o2s_t_invoice_cpf_cnpj_transp?replace("/", "")?replace("-", "")?replace(".", "")?replace(".", "")}</CNPJ>
+</#if>
+<xNome>${truncateFields(transaction.custbody_o2s_t_invoice_razao_so_transp,60)}</xNome>
+<IE>${transaction.custbody_o2s_t_invoice_insc_estad_tran?replace("/", "")?replace("-", "")?replace(".", "")?replace(".", "")}</IE>
+<xEnder>${truncateFields(transaction.custbody_o2s_t_invoice_end_transp,60)}</xEnder>
+<xMun>${transaction.custbody_o2s_t_invoice_munic_transp}</xMun>
+<UF>${transaction.custbody_o2s_t_invoice_uf_transp}</UF>
+</transporta>
+<veicTransp>
+<placa>${transaction.custbody_sit_transaction_t_placa_veic}</placa>
+<UF>${transaction.custbody_sit_transaction_l_uf_placa?string?split(" - ")[0]}</UF>
+<RNTC>${transaction.custbody_sit_transaction_t_codigo_antt}</RNTC>
+</veicTransp>
+<vol>
+<qVol>${transaction.custbody_sit_transaction_i_qtde_volume}</qVol>
+<esp>${transaction.custbody_sit_transaction_t_especie}</esp>
+<marca>${transaction.custbody_sit_transaction_t_marca}</marca>
+<nVol>${transaction.custbody_sit_transaction_t_numeracao}</nVol>
+<pesoL>${ajustaPeso(transaction.custbody_sit_transaction_t_peso_liquid)}</pesoL>
+<pesoB>${ajustaPeso(transaction.custbody_sit_transaction_t_peso_bruto)}</pesoB>
+</vol>
+</transp>
+<#list transaction.custbody_o2s_transaction_a_parcelas?split("|") as pag>
+<#assign totalParcelas = totalParcelas + 1>
+</#list>
+<cobr>
+<fat>
+<nFat>${transaction.id}</nFat>
+<#if (valorTotalIPI gt 0 || valorTotalICMSST gt 0 || valorTotalFCPST gt 0) && isImportComb != "T">
+<#assign valorTotalProdutos = formataDecimal(valorTotalProdutos)?number + formataDecimal(valorTotalIPI)?number + formataDecimal(valorTotalICMSST)?number>
+</#if>
+<vOrig><#if isImportComb != "T">${formata((vNF - valorTaxaCartao) + valorTaxaDesconto)}<#else>${formataDecimal(valorTotalProdutos)}</#if></vOrig>
+<vDesc>${formataDecimal(valorDesconto)}</vDesc>
+<vLiq><#if isImportComb != "T">${formata(vNF - valorTaxaCartao)}<#else>${formataDecimal(valorTotalProdutos)}</#if></vLiq>
+</fat>
+<#list transaction.custbody_o2s_transaction_a_parcelas?string?split("|") as parcela>
+<#assign vDup = parcela?split("/")[2]?replace("," , "")?replace("." , "")?trim>
+
+<#if vDup?string != "" && validaTransacaoParcelamento(transaction.type)>
+<dup>
+<#if parcela?split("/")[0]?length == 1><#assign nDup = "00" + parcela?split("/")[0]></#if>
+<#if parcela?split("/")[0]?length == 2><#assign nDup = "0" + parcela?split("/")[0]></#if>
+<nDup>${nDup}</nDup>
+<dVenc>${parcela?split("/")[1]}</dVenc>
+<vDup><#if isImportComb != "T">${formatoDinheiro(vDup)}<#else>${formataDecimal(valorTotalProdutos)}</#if></vDup>
+</dup>
+</#if>
+</#list>
+</cobr>
+<pag>
+<#if transaction.custbody_o2s_transaction_a_parcelas?string?trim != "" && finNfeDevolucao != "4">
+<#list transaction.custbody_o2s_transaction_a_parcelas?split("|") as pag>
+<#assign vPag = pag?split("/")[2]>
+<#assign vPag = vPag?replace("," , "")?replace("." , "")?trim>
+<#assign valIPIRate = valorTotalIPI?number / totalParcelas?number>
+
+<detPag>
+<tPag>${pag?split("/")[3]?string?trim}</tPag>
+<#if tipoNota == "NFC-e">
+<vPag>${formatoDinheiro(vPag - valIPIRate)}</vPag>
+<#else>
+<vPag>${formatoDinheiro(vPag)}</vPag>
+</#if>
+</detPag>
+</#list>
+<#else>
+<detPag>
+<tPag><#if finNfeDevolucao == "4">90<#else>01</#if></tPag>
+<vPag>0.00</vPag>
+</detPag>
+</#if>
+</pag>
+<infAdic>
+<#assign infCpl = transaction.custbody_sit_transaction_a_out_inf>
+<#assign msgIcmsDeson = "Valor da DESONERAÇÃO DO ICMS: R$ " + vICMSDeson + " conforme ajuste SINIEF 25/12">
+<#assign msgFCPST = "Valor total do FCP-ST R$ " + valorTotalFCPST>
+<#assign valorIBPT = formataDecimal(transaction.custbody_o2s_transaction_v_tribut_apro)>
+<#assign msgIBPT = transaction.custbody_sit_transac_demo_ibpt>
+<#if infCpl?length gt 0>
+<#if calculouICMSZFM>
+<#assign infCpl = infCpl + msgIcmsDeson>
+</#if>
+<#if calculouFCPST>
+<#assign infCpl = infCpl + msgFCPST>
+</#if>
+<#else>
+<#if calculouICMSZFM>
+<#assign infCpl = infCpl + " " + msgIcmsDeson>
+</#if>
+<#if calculouFCPST>
+<#assign infCpl = infCpl + " " + msgFCPST>
+</#if>
+</#if>
+<#if valorIBPT?replace(".","")?replace(",","")?number gt 0>
+<#assign infCpl = infCpl + " " + msgIBPT>
+</#if>
+<#if transaction.custbody_o2s_transaction_a_desc_comp_k != "">
+<#assign msgKit = transaction.custbody_o2s_transaction_a_desc_comp_k>
+<#assign infCpl = infCpl + " " + msgKit>
+</#if>
+<infCpl>${infCpl?trim}</infCpl>
+</infAdic>
+<exporta>
+<UFSaidaPais>${transaction.custbody_o2s_transaction_l_uf_saida?string?split(" - ")[0]}</UFSaidaPais>
+<xLocExporta>${truncateFields(transaction.custbody_o2s_transaction_t_loc_emb,60)}</xLocExporta>
+<xLocDespacho>${truncateFields(transaction.custbody_o2s_transaction_t_loc_desp,60)}</xLocDespacho>
+</exporta>
+<infRespTec>
+<CNPJ>27406266000195</CNPJ>
+<xContato>José Freire Neto</xContato>
+<email>jose.freire@oxygen.systems</email>
+<fone>1142808940</fone>
+<idCSRT></idCSRT>
+<hashCSRT></hashCSRT>
+</infRespTec>
+</infNFe>
+<#if tipoNota == "NFC-e">
+<infNFeSupl></infNFeSupl>
+</#if>
+</NFe>
